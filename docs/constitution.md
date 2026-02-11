@@ -1,6 +1,6 @@
-# Mind-Nodes Project Constitution
+# LeadLocal — Project Constitution
 
-> The foundational document defining why Mind-Nodes exists, what it aims to achieve, and the principles guiding its development.
+> The foundational document defining what LeadLocal is, who it serves, how it makes money, and the principles guiding its development and commercialization.
 
 ---
 
@@ -8,21 +8,19 @@
 
 ### 1.1 Name and Tagline
 
-- **Name:** Mind-Nodes
-- **Tagline:** *An open-source Python mind mapping application with full XMind compatibility*
+- **Product Name:** LeadLocal
+- **Tagline:** *Find local businesses. Close them. One tool, zero spreadsheets.*
+- **Domain candidates:** leadlocal.io, leadlocal.app, getleadlocal.com
 
-### 1.2 Version Designation
+### 1.2 One-Liner
 
-| Version Range | Meaning |
-|---------------|---------|
-| `v0.1.0` – `v0.9.x` | Pre-release development milestones |
-| `v1.0.0` | Feature-complete parity with XMind core capabilities |
-| `v1.x.x` | Stability, performance, and polish releases |
-| `v2.0.0+` | Next-generation features (collaboration, AI, etc.) |
+LeadLocal is a web app that lets sales professionals search for local businesses by category and location, then track their outreach — notes, follow-ups, and deal pipeline — without juggling spreadsheets and multiple tools.
 
-### 1.3 License
+### 1.3 License and Ownership
 
-**MIT License** — chosen for maximum adoption. Permits commercial use, modification, distribution, and private use with minimal restrictions. Compatible with the LGPL-licensed PySide6 dependency.
+- **Product type:** Proprietary SaaS (closed source)
+- **Business entity:** Required before launch (LLC recommended)
+- **Privacy:** GDPR and CCPA compliant from day one
 
 ---
 
@@ -30,247 +28,253 @@
 
 ### 2.1 Vision Statement
 
-A fully open-source, cross-platform, Python-native mind mapping desktop application that matches XMind's feature set while providing extensibility through plugins and scriptability through Python APIs.
+Become the default prospecting tool for anyone who sells to local businesses — by combining business discovery and relationship tracking into one effortless workflow.
 
 ### 2.2 Mission Statement
 
-Deliver a performant, visually polished mind mapping tool built entirely in Python, capable of reading and writing `.xmind` files natively, supporting 9+ layout algorithms, full theming, and a plugin architecture that empowers the community to extend every aspect of the application.
+Eliminate the gap between "finding a lead" and "closing a deal" for local B2B sales. Give every freelancer, sales rep, and agency owner a pre-loaded pipeline they can start working in 30 seconds.
 
-### 2.3 Target Users
+### 2.3 Core Value Proposition
 
-| User Group | Primary Need |
-|------------|-------------|
-| Knowledge workers | Brainstorming, organizing ideas, meeting notes |
-| Project managers | Work breakdown structures, task visualization |
-| Students & educators | Study guides, lecture notes, curriculum mapping |
-| Software developers | Architecture diagrams, feature planning, documentation |
-| Researchers | Literature mapping, concept analysis, taxonomy building |
-| Open-source advocates | XMind-compatible tooling without proprietary lock-in |
+| For users today | With LeadLocal |
+|----------------|----------------|
+| Google Maps → copy to spreadsheet → add notes → set calendar reminder → lose track | Search → see leads → add notes → set follow-up → track pipeline — all in one place |
+| Pay $50+ for a scraper + $15+ for a CRM + hours duct-taping them | One tool, one price, instant value |
+| Start with empty CRM, spend days importing data | Start with pre-loaded local business data from day one |
 
 ---
 
-## 3. Core Principles
+## 3. Target Personas
 
-### 3.1 XMind Fidelity
+### 3.1 Primary Personas
 
-Feature parity with XMind is the north star. Every core XMind capability must have a corresponding Mind-Nodes implementation. The `.xmind` file format is treated as the primary interchange format — files created in XMind must open correctly in Mind-Nodes, and vice versa.
+| Persona | Description | Pain Point | Willingness to Pay |
+|---------|-------------|-----------|-------------------|
+| **Agency Alex** | Owner of a 2-5 person digital marketing agency. Pitches SEO, social media, and web design to local businesses. | Spends 10+ hrs/week finding prospects on Google Maps and tracking outreach in spreadsheets | $49/mo — high (it's a business expense that pays for itself with one closed deal) |
+| **Freelancer Fiona** | Solo web designer, copywriter, or consultant. Needs 3-5 new clients per quarter. | Has no systematic prospecting process; relies on referrals and occasional cold emails | $19/mo — medium (budget-conscious but values time savings) |
+| **Sales Rep Sam** | B2B field sales rep selling to local businesses (insurance, payment terminals, supplies, services). Territory-based. | Needs to systematically work through businesses in assigned territory; currently uses paper lists or messy spreadsheets | $29/mo — high (employer may pay, or individual expense) |
+| **Startup Founder Sofia** | Early-stage B2B startup selling a product/service to local businesses (e.g., POS systems, delivery partnerships). | Needs to validate market by reaching 100+ local businesses quickly | $29–$49/mo — high (speed matters more than cost) |
 
-### 3.2 Python-Native
+### 3.2 Anti-Personas (Not Our Customers)
 
-The entire application is built in Python. C/C++ extensions are permitted only for performance-critical rendering paths where pure Python cannot meet the 60fps target. All business logic, data models, and algorithms remain in Python for readability and contributor accessibility.
-
-### 3.3 Separation of Concerns
-
-The application follows a strict 4-layer architecture. The data model knows nothing about rendering. The layout engine knows nothing about UI widgets. The file I/O layer operates on model objects, not visual items. This separation enables independent testing, replacement, and extension of each layer.
-
-> Cross-reference: Layer definitions in [blueprint.md](blueprint.md) Section 1.
-
-### 3.4 Extensibility First
-
-The plugin architecture is not an afterthought — it is a first-class design concern from day one. Layout algorithms, file format handlers, exporters, theme packs, marker packs, and UI panels are all pluggable. The core application itself uses the same plugin interfaces that third-party extensions use.
-
-### 3.5 Cross-Platform
-
-Windows, macOS, and Linux are all first-class citizens. No platform-specific code in the core application. Platform-specific behavior (file dialogs, native menus, system tray) is handled through PySide6's cross-platform abstractions.
-
-### 3.6 File Format Compatibility
-
-Native `.xmind` (Zen format) read/write with lossless round-trip as the goal. Unknown fields in `.xmind` files are preserved during load/save to avoid data loss when Mind-Nodes encounters features it doesn't yet support.
-
-### 3.7 Performance
-
-The application must feel responsive on modern hardware. Maps with hundreds of nodes must render smoothly. Layout algorithms must complete in sub-second time. The application must not block the UI thread during file I/O or export operations.
-
-### 3.8 Accessibility
-
-Full keyboard navigation for all operations. Screen reader compatibility via Qt accessibility APIs. High-contrast theme included by default. Color choices in themes must meet WCAG AA contrast ratios for text readability.
+| Anti-Persona | Why Not |
+|-------------|---------|
+| Enterprise sales teams (50+ reps) | Need Salesforce/HubSpot. We don't do forecasting, territories, or multi-layer approvals |
+| E-commerce / online-only businesses | They don't sell to local businesses. Our data is physical-location businesses |
+| Recruiters / HR | They need people data, not business data. LinkedIn is their tool |
+| Data resellers | We don't offer bulk export or API access for resale |
 
 ---
 
-## 4. Scope — Features In
+## 4. Business Model
 
-### 4.1 Core Mind Mapping (MVP)
+### 4.1 Revenue Model: SaaS Subscription (Monthly/Annual)
 
-- **Node/Topic CRUD** — Create, read, update, delete topics at any level in the hierarchy
-- **Unlimited hierarchy depth** — No artificial limit on nesting levels
-- **Root nodes** — Each sheet has exactly one central root topic
-- **Child topics** — Attached children that follow the layout algorithm
-- **Floating topics** — Detached topics with explicit x,y positions on the canvas
-- **Callouts** — Speech-bubble annotations attached to any topic
-- **Relationship arrows** — Freeform connections between any two topics with optional text labels
-- **Boundaries** — Visual grouping containers around a range of sibling topics
-- **Summaries** — Bracket annotations spanning a range of siblings, linking to a summary topic
-- **Notes** — Rich text notes attached to individual topics (plain text + HTML subset)
-- **Labels** — Short text tags displayed on topics
-- **Markers/Icons** — 350+ categorized icons assignable to topics (priority, task progress, flags, stars, smileys, arrows, symbols, months, weekdays, people)
-- **Hyperlinks** — URL links attached to topics, openable in the system browser
-- **Images** — Embedded images within topic nodes
-- **Folding** — Collapse/expand subtrees to manage visual complexity
+| Tier | Price (Monthly) | Price (Annual) | Limits | Target Persona |
+|------|----------------|---------------|--------|----------------|
+| **Free** | $0 | $0 | 50 saved leads, 10 searches/mo, 1 user, no export | Trial users, evaluation |
+| **Starter** | $19/mo | $190/yr (save 17%) | 500 saved leads, 50 searches/mo, 1 user, CSV export | Freelancer Fiona |
+| **Pro** | $39/mo | $390/yr (save 17%) | 2,000 saved leads, 200 searches/mo, 3 users, email integration, analytics | Sales Rep Sam |
+| **Agency** | $79/mo | $790/yr (save 17%) | 10,000 saved leads, unlimited searches, 10 users, team features, white-label reports, API access | Agency Alex |
 
-### 4.2 Layout Algorithms (9+ Structures)
+### 4.2 Key Pricing Psychology
 
-| Layout | Structure Class | Description |
-|--------|----------------|-------------|
-| Mind Map (Radial) | `org.xmind.ui.map` | Balanced radial expansion from center |
-| Logic Chart | `org.xmind.ui.logic.right/left` | Horizontal tree flow |
-| Org Chart | `org.xmind.ui.org-chart.down/up` | Vertical hierarchy |
-| Tree Chart | `org.xmind.ui.tree.right/left` | Indented tree structure |
-| Brace Map | `org.xmind.ui.brace.right` | Brace-connected groupings |
-| Timeline | `org.xmind.ui.timeline.horizontal/vertical` | Chronological sequence |
-| Fishbone | `org.xmind.ui.fishbone.leftHeaded/rightHeaded` | Ishikawa cause-effect diagram |
-| Matrix | `org.xmind.ui.spreadsheet` | Grid/row-column arrangement |
-| Tree Table | `org.xmind.ui.spreadsheet.column` | Hybrid tree + table columns |
+- **Free tier is critical** — users must experience value (seeing real businesses instantly) before paying
+- **Upgrade trigger:** "You've saved 45 of 50 free leads. Upgrade to keep prospecting." — friction at the natural moment of engagement
+- **Annual discount:** 17% off incentivizes commitment and reduces churn
+- **Per-seat pricing on higher tiers** creates expansion revenue as teams grow
+- **No per-lead pricing** — users hate metered access to data; flat monthly fee feels safer
 
-Each topic can specify its own `structureClass`, allowing mixed layouts within a single map (e.g., radial root with org-chart subtrees).
+### 4.3 Unit Economics Targets
 
-### 4.3 Visual and Styling
+| Metric | Target | Notes |
+|--------|--------|-------|
+| Customer Acquisition Cost (CAC) | < $50 | Via content marketing + SEO + word-of-mouth |
+| Monthly ARPU | $30 | Blended across tiers |
+| Gross Margin | > 80% | API costs ~$3-5/user/mo, hosting ~$1/user/mo |
+| Churn Rate (monthly) | < 5% | Target < 3% at maturity |
+| LTV (Lifetime Value) | > $600 | At $30 ARPU, 5% churn → 20-month avg lifetime |
+| LTV:CAC Ratio | > 12:1 | Healthy SaaS ratio |
+| Payback Period | < 2 months | Revenue exceeds CAC quickly |
+| Time to $10K MRR | < 12 months | ~333 paid users at $30 ARPU |
 
-- **Color themes** — Predefined themes, custom theme creation, smart auto-generation from a seed color
-- **Node shapes** — Rectangle, rounded rectangle, ellipse, diamond, parallelogram, cloud, underline, no border
-- **Text formatting** — Font family, size, weight (bold), style (italic), underline, color, alignment
-- **Border styling** — Color, width, dash pattern per node
-- **Shadow effects** — Drop shadows on nodes for depth
-- **Gradient backgrounds** — Linear gradient fills on nodes
-- **Branch line styling** — Color, width, dash pattern, curve style (Bezier, straight, elbow, rounded elbow), tapered lines
-- **Canvas backgrounds** — Solid color, wallpaper images, optional grid overlay
-- **350+ built-in marker icons** — Organized by category (priority, task, flag, star, smiley, arrow, symbol, month, week, people)
-- **Custom images** — Embed images into topics from local files
+### 4.4 Revenue Projections (Conservative)
 
-### 4.4 File I/O
-
-**Primary format:**
-- Native `.xmind` format (ZIP archive with `content.json`, `metadata.json`, `manifest.json`, thumbnails, and embedded resources)
-
-**Export formats:**
-- PNG (raster image)
-- SVG (vector graphic)
-- PDF (paginated document)
-- Markdown (hierarchical text outline)
-- OPML (Outline Processor Markup Language)
-- FreeMind XML (`.mm`)
-
-**Import formats:**
-- XMind (`.xmind`)
-- FreeMind (`.mm`)
-- OPML (`.opml`)
-- Markdown (`.md`)
-
-> Cross-reference: File format specifications in [artifacts.md](artifacts.md) Section 2.
-
-### 4.5 Advanced Features
-
-- **Multiple sheets per workbook** — Tabbed interface for multiple maps in one file
-- **Outline view** — Hierarchical text view of the map, fully editable, bidirectionally synced with canvas
-- **Presentation mode** — Full-screen slideshow walking through the map branch by branch
-- **Unlimited undo/redo** — Every operation reversible via Command pattern
-- **Auto-save** — Periodic background saves with crash recovery
-- **Full-text search** — Find topics by text content, highlight matches on canvas
-- **Find and replace** — Bulk text replacement across all topics
-- **Keyboard shortcuts** — Comprehensive keybindings for all operations, user-customizable
-- **Drag-and-drop** — Reparent topics by dragging on canvas
-- **Context menus** — Right-click menus for topics, relationships, and canvas
-- **Minimap** — Overview widget for navigating large maps
-- **Zoom** — Smooth zoom from 10% to 500% via mouse wheel, pinch, or toolbar
-
-### 4.6 Post-MVP Features (v2.0+)
-
-- Real-time multi-user collaboration via CRDT/OT
-- Share by link with permission management
-- Comments and activity log
-- Export to Word/DOCX, PowerPoint/PPTX, Excel/CSV
-- Plugin marketplace/registry
-- Localization/internationalization (i18n)
-- ICS calendar export for task dates
-- Gantt chart view (simplified task timeline)
+| Month | Paid Users | MRR | ARR |
+|-------|-----------|-----|-----|
+| 3 | 30 | $900 | $10.8K |
+| 6 | 100 | $3,000 | $36K |
+| 9 | 250 | $7,500 | $90K |
+| 12 | 400 | $12,000 | $144K |
+| 18 | 800 | $24,000 | $288K |
+| 24 | 1,500 | $45,000 | $540K |
 
 ---
 
-## 5. Scope — Non-Goals
+## 5. Competitive Positioning
 
-The following are explicitly **out of scope** for Mind-Nodes:
+### 5.1 Positioning Statement
+
+> For sales professionals who prospect local businesses, LeadLocal is the all-in-one prospecting tool that combines Google Places business discovery with a lightweight CRM — unlike lead scrapers that dump CSVs with no tracking, or CRMs that start empty and require manual data entry.
+
+### 5.2 Competitive Differentiation
+
+| Dimension | LeadSwift (closest competitor) | Generic CRMs (Pipedrive, etc.) | **LeadLocal** |
+|-----------|-------------------------------|-------------------------------|---------------|
+| Find local businesses | Yes (scraping) | **No** | Yes (legal APIs) |
+| Notes & follow-ups | **No** | Yes | Yes |
+| Pipeline tracking | **No** | Yes | Yes |
+| Email outreach | Yes (built-in) | Some | Phase 2 (integration) |
+| Data legality | Gray (scraping) | N/A | **Legal (official APIs)** |
+| Price | $20-80/mo | $14-50/user/mo | $0-79/mo |
+| Setup time | Minutes | Hours (import data) | **30 seconds** |
+| Target user | Email blasters | Sales teams | **Local B2B prospectors** |
+
+### 5.3 Moat Strategy (Long-term Defensibility)
+
+| Moat Layer | Timeline | Description |
+|-----------|----------|-------------|
+| **Data enrichment** | Month 3+ | Layer in Google Reviews sentiment, website tech detection, social media presence — data competitors don't combine |
+| **User-generated intelligence** | Month 6+ | Aggregate anonymized outreach success rates per business category/region — "Restaurants in Austin have 12% reply rate" |
+| **Workflow lock-in** | Month 1+ | Users' notes, follow-up history, and pipeline data make switching costly |
+| **Integrations** | Month 6+ | Connect to Gmail, Outlook, Slack, Zapier — each integration increases switching cost |
+| **Vertical templates** | Month 9+ | Pre-built prospecting playbooks for insurance agents, marketing agencies, commercial real estate — each vertical is a mini-product |
+
+---
+
+## 6. Core Principles
+
+### 6.1 Instant Value
+
+Users must see real business data within 30 seconds of signing up. No onboarding wizards, no "import your contacts" — search a location and see leads immediately.
+
+### 6.2 Simplicity Over Features
+
+We are not Salesforce. We do 3 things well: discover leads, take notes, track follow-ups. Every feature must pass the test: "Would a solo freelancer use this on day one?"
+
+### 6.3 Legal Data Only
+
+All business data comes from official APIs (Google Places, Yelp Fusion, Foursquare). No scraping. No gray areas. This is a selling point, not a limitation — our data is reliable and we'll never get a cease-and-desist.
+
+### 6.4 Commercial Viability First
+
+Every engineering decision considers commercialization impact. We build what users will pay for, not what's technically interesting.
+
+### 6.5 Speed to Market
+
+MVP in 4-5 weeks. First paying customer within 6 weeks. Iteration speed beats feature completeness.
+
+### 6.6 Data Privacy
+
+User notes and follow-up data are private and never shared. Business data from public APIs is aggregated but individual user activity is never sold or exposed.
+
+---
+
+## 7. Scope — Features In
+
+### 7.1 MVP (Launch in 4-5 weeks)
+
+- **Business search:** Search by category + location + radius via Google Places API
+- **Lead cards:** Name, address, phone, website, rating, reviews count, open hours, category
+- **Save to pipeline:** Save businesses to personal pipeline with status (New → Contacted → Meeting → Proposal → Won → Lost)
+- **Notes:** Add timestamped notes to any saved lead
+- **Follow-up reminders:** Set date-based reminders for each lead
+- **User auth:** Email/password signup + magic link login
+- **Free tier:** 50 saved leads, 10 searches/month
+- **Stripe billing:** Starter/Pro subscription with upgrade prompts
+- **Dashboard:** Saved leads count, follow-ups due today, pipeline summary
+- **Responsive web:** Works on desktop and mobile browsers
+
+### 7.2 Post-MVP (Months 2-4)
+
+- **Multi-source search:** Add Yelp Fusion + Foursquare data alongside Google Places
+- **Email finder:** Integrate Hunter.io to discover business owner emails
+- **CSV export:** Download saved leads as spreadsheet
+- **Tags and filters:** Custom tags, filter by status/tag/date/rating
+- **Bulk actions:** Select multiple leads → change status, add tag, delete
+- **Activity timeline:** Full history of interactions per lead (notes, status changes, reminders)
+- **Email integration:** Connect Gmail/Outlook, log sent emails to lead timeline
+- **Team features:** Invite team members, assign leads, shared pipeline (Pro/Agency tier)
+
+### 7.3 Growth Features (Months 4-8)
+
+- **Smart lead scoring:** Auto-score leads by rating, review count, website presence, response likelihood
+- **Analytics dashboard:** Conversion funnel, outreach success rates, best-performing categories
+- **Email templates:** Pre-written outreach templates customizable per category
+- **Zapier integration:** Connect to 3,000+ tools
+- **Chrome extension:** "Save to LeadLocal" button on Google Maps, Yelp, any business website
+- **Territory mapping:** Visual map view of saved leads, color-coded by pipeline status
+- **White-label reports:** Agencies can generate branded prospect reports for their clients
+- **API access:** REST API for power users and integrations (Agency tier)
+
+### 7.4 Future (Months 8+)
+
+- **AI assistant:** "Show me restaurants in Chicago with < 4.0 rating and no website" — natural language search
+- **Automated follow-up sequences:** Set up email drip campaigns per pipeline stage
+- **Mobile app:** Native iOS/Android for field sales reps
+- **Vertical playbooks:** Industry-specific prospecting templates (insurance, real estate, marketing agencies)
+
+---
+
+## 8. Scope — Non-Goals
 
 | Non-Goal | Rationale |
 |----------|-----------|
-| Mobile applications (iOS/Android) | Desktop-only focus; mobile would require different UI paradigm |
-| Web-based version | This is a native desktop application; web would require entirely different tech stack |
-| Full project management (Gantt, resource allocation, budgets) | Mind mapping tool, not a PM suite; simplified task view only |
-| AI-powered features (auto-suggestion, content generation, smart layout) | Keep core deterministic and predictable; AI can be a future plugin |
-| Cloud storage backend | Local-first philosophy; cloud sync deferred as a future plugin |
-| Electron/web technology stack | Python + Qt only; no JavaScript runtime |
-| Video/audio embedding | Out of scope for a mind mapping tool |
-| Real-time whiteboarding/freehand drawing | Mind mapping is structured; freehand is a different tool category |
+| Full email marketing platform | Not Mailchimp. We integrate with email, not replace it |
+| Phone/SMS system | Not a VoIP provider. Integrate with existing tools |
+| Accounting/invoicing | Not QuickBooks. We focus on pre-sale, not post-sale |
+| Social media management | Out of scope entirely |
+| E-commerce or B2C sales | We serve B2B local business prospecting only |
+| Bulk data resale / API-only product | We're a workflow tool, not a data provider |
+| Enterprise features (forecasting, territories, multi-level permissions) | Anti-complexity. If they need this, they need Salesforce |
 
 ---
 
-## 6. Success Criteria
+## 9. Success Criteria
 
-### 6.1 Functional Criteria
+### 9.1 Commercial Success Criteria
 
-- [ ] Can open any `.xmind` file created by XMind 2020+ and render it with correct structure, styling, and layout
-- [ ] Can save files that XMind 2024 can open without data loss on supported features
-- [ ] All 9 layout algorithms produce visually correct, non-overlapping results
-- [ ] Undo/redo works for every single operation without model corruption
-- [ ] All file format importers/exporters produce valid output matching their format specifications
-- [ ] Outline view stays perfectly synchronized with canvas edits and vice versa
-- [ ] Presentation mode correctly walks through all branches
+| Milestone | Target Date | Metric |
+|-----------|-------------|--------|
+| MVP launched | Week 5 | Deployed, functional, accepting signups |
+| First 100 free users | Week 7 | Organic + ProductHunt launch |
+| First paying customer | Week 6-8 | At least 1 Stripe subscription |
+| $1K MRR | Month 3 | ~33 paid users at $30 avg |
+| $5K MRR | Month 6 | ~167 paid users |
+| $10K MRR | Month 12 | ~333 paid users |
+| Free-to-paid conversion | Ongoing | > 5% of free users convert |
+| Monthly churn | Ongoing | < 5% |
+| NPS score | Month 6+ | > 40 |
 
-### 6.2 Performance Criteria
+### 9.2 Technical Success Criteria
 
 | Metric | Target |
 |--------|--------|
-| Cold startup time | < 2 seconds on modern hardware |
-| Canvas panning/zooming | Smooth 60fps with 500 nodes visible |
-| Node operation response (add/delete/move) | < 100ms |
-| Full re-layout of 1000-node map | < 5 seconds |
-| File open (100-node .xmind) | < 1 second |
-| File save (100-node .xmind) | < 1 second |
-| PNG export (500-node map) | < 3 seconds |
-| Memory usage (500-node map) | < 500 MB |
+| Page load time | < 2 seconds |
+| Search results returned | < 3 seconds |
+| Uptime | > 99.5% |
+| API response time (p95) | < 500ms |
+| Zero data loss | All user notes and pipeline data backed up |
+| Mobile responsive | Fully usable on phone browsers |
+| Lighthouse score | > 90 (Performance, Accessibility) |
 
-### 6.3 Quality Criteria
+### 9.3 User Experience Criteria
 
-- [ ] \> 80% unit test coverage on model and layout engine modules
-- [ ] \> 60% test coverage on UI modules (via pytest-qt)
-- [ ] Zero known data-loss bugs at any release
-- [ ] Passes `mypy --strict` type checking on all source files
-- [ ] Passes `ruff check` and `ruff format --check` with zero violations
-- [ ] All public APIs documented with docstrings
-- [ ] CI pipeline green on Python 3.11, 3.12, 3.13 across Linux, macOS, Windows
-
-### 6.4 Compatibility Criteria
-
-- [ ] Runs on Windows 10+, macOS 12+, Ubuntu 22.04+
-- [ ] Installs via `pip install mindnodes` from PyPI
-- [ ] Installable via standalone executable on all three platforms (PyInstaller/Nuitka)
-- [ ] `.xmind` files created by Mind-Nodes are accepted by XMind 2024 without errors
+| Criterion | Target |
+|-----------|--------|
+| Time to first value (search → see results) | < 30 seconds after signup |
+| Time to save first lead | < 60 seconds after signup |
+| Onboarding completion rate | > 80% (search + save 1 lead) |
+| Support tickets per 100 users/month | < 5 |
 
 ---
 
-## 7. Stakeholders and Governance
-
-### 7.1 Decision-Making Process
-
-During the `v0.x` development phase, the project follows a single-maintainer model with decisions made pragmatically. For major architectural changes, decisions are documented as Architecture Decision Records (ADRs) in [blueprint.md](blueprint.md).
-
-Post `v1.0`, the project will adopt an RFC (Request for Comments) process for significant changes, where proposals are discussed in GitHub issues before implementation begins.
-
-### 7.2 Contribution Guidelines
-
-Community contributions are welcome from day one. All contributions must:
-- Pass the CI pipeline (lint, type-check, test)
-- Include tests for new functionality
-- Follow existing code patterns and architecture
-- Not introduce new dependencies without discussion
-
-> Cross-reference: Contribution setup in [skeleton.md](skeleton.md) Section 7.
-
----
-
-## 8. Document Cross-References
+## 10. Document Cross-References
 
 | Topic | Document |
 |-------|----------|
-| System architecture and component design | [blueprint.md](blueprint.md) |
-| Data model schemas and file format specs | [artifacts.md](artifacts.md) |
-| Phased build plan and testing strategy | [implementation-guide.md](implementation-guide.md) |
-| Project directory structure and dependencies | [skeleton.md](skeleton.md) |
+| System architecture and tech decisions | [blueprint.md](blueprint.md) |
+| Database schemas, API specs, payment webhooks | [artifacts.md](artifacts.md) |
+| Phased build plan with commercial milestones | [implementation-guide.md](implementation-guide.md) |
+| Project directory structure and configs | [skeleton.md](skeleton.md) |
+| Launch strategy, marketing, growth tactics | [go-to-market.md](go-to-market.md) |

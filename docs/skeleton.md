@@ -1,592 +1,283 @@
-# Mind-Nodes Project Skeleton
+# LeadLocal — Project Skeleton
 
-> The complete project directory structure defining every package, module, configuration file, and their responsibilities. This is the map a developer uses to know exactly which file to create, find, or modify.
+> The complete project directory structure for both backend (Python/FastAPI) and frontend (Next.js), with every file described, dependency lists, and configuration templates.
 
 ---
 
-## 1. Project Root Structure
+## 1. Repository Structure
+
+LeadLocal is a **monorepo** with two top-level directories: `api/` (backend) and `web/` (frontend).
 
 ```
-mind-nodes/
+leadlocal/
+├── api/                                    # Python FastAPI backend
+│   ├── src/
+│   │   └── leadlocal/                      # Main Python package
+│   │       ├── __init__.py                 # Package version
+│   │       ├── main.py                     # FastAPI app factory, startup/shutdown
+│   │       │
+│   │       ├── api/                        # Route handlers (thin controllers)
+│   │       │   ├── __init__.py
+│   │       │   ├── router.py              # Main APIRouter aggregating all routes
+│   │       │   ├── auth.py                # Signup, login, magic link, verify, refresh
+│   │       │   ├── search.py              # Business search endpoint
+│   │       │   ├── leads.py               # Lead CRUD + bulk actions
+│   │       │   ├── notes.py               # Notes CRUD per lead
+│   │       │   ├── reminders.py           # Reminders CRUD + due-today
+│   │       │   ├── tags.py                # Tags CRUD + lead-tag associations
+│   │       │   ├── pipeline.py            # Pipeline stats + status transitions
+│   │       │   ├── analytics.py           # Funnel stats, conversion metrics
+│   │       │   ├── billing.py             # Stripe checkout, portal, webhook
+│   │       │   ├── users.py               # Profile update, settings
+│   │       │   ├── teams.py               # Team CRUD, invite, roles
+│   │       │   └── export.py              # CSV/JSON export
+│   │       │
+│   │       ├── services/                   # Business logic (framework-free)
+│   │       │   ├── __init__.py
+│   │       │   ├── auth_service.py        # User creation, verification, token logic
+│   │       │   ├── search_service.py      # Multi-source search orchestration + caching
+│   │       │   ├── lead_service.py        # Lead CRUD + dedup + limit enforcement
+│   │       │   ├── note_service.py        # Note operations
+│   │       │   ├── reminder_service.py    # Reminder scheduling + notifications
+│   │       │   ├── pipeline_service.py    # Status transitions + analytics computation
+│   │       │   ├── billing_service.py     # Stripe operations + tier enforcement
+│   │       │   ├── export_service.py      # CSV generation
+│   │       │   ├── email_service.py       # Transactional email via Resend
+│   │       │   ├── team_service.py        # Team management + invitations
+│   │       │   └── analytics_service.py   # Metrics aggregation
+│   │       │
+│   │       ├── integrations/               # External API clients
+│   │       │   ├── __init__.py
+│   │       │   ├── google_places.py       # Google Places API (New) client
+│   │       │   ├── yelp.py                # Yelp Fusion API client
+│   │       │   ├── foursquare.py          # Foursquare Places API client
+│   │       │   ├── hunter.py              # Hunter.io email finder client
+│   │       │   └── stripe_client.py       # Stripe SDK wrapper
+│   │       │
+│   │       ├── models/                     # SQLAlchemy ORM models
+│   │       │   ├── __init__.py            # Re-exports all models
+│   │       │   ├── base.py                # Declarative base + common mixins
+│   │       │   ├── user.py                # User model
+│   │       │   ├── subscription.py        # Subscription model
+│   │       │   ├── lead.py                # Lead model
+│   │       │   ├── note.py                # Note model
+│   │       │   ├── reminder.py            # Reminder model
+│   │       │   ├── tag.py                 # Tag + LeadTag models
+│   │       │   ├── team.py                # Team + TeamMember models
+│   │       │   └── search_log.py          # SearchLog model
+│   │       │
+│   │       ├── schemas/                    # Pydantic request/response schemas
+│   │       │   ├── __init__.py
+│   │       │   ├── auth.py                # SignupRequest, LoginRequest, TokenResponse
+│   │       │   ├── search.py              # SearchRequest, LeadSearchResult
+│   │       │   ├── lead.py                # LeadCreate, LeadUpdate, LeadSchema, LeadDetail
+│   │       │   ├── note.py                # NoteCreate, NoteSchema
+│   │       │   ├── reminder.py            # ReminderCreate, ReminderSchema
+│   │       │   ├── tag.py                 # TagCreate, TagSchema
+│   │       │   ├── billing.py             # CheckoutRequest, SubscriptionSchema
+│   │       │   ├── analytics.py           # PipelineStats, FunnelData
+│   │       │   ├── team.py                # TeamCreate, TeamInvite, TeamSchema
+│   │       │   ├── user.py                # UserUpdate, UserSchema
+│   │       │   └── common.py              # PaginatedResponse, ErrorResponse
+│   │       │
+│   │       ├── core/                       # Cross-cutting infrastructure
+│   │       │   ├── __init__.py
+│   │       │   ├── config.py              # Settings via pydantic-settings (.env loading)
+│   │       │   ├── database.py            # Async SQLAlchemy engine + session factory
+│   │       │   ├── redis.py               # Redis client singleton
+│   │       │   ├── security.py            # JWT encode/decode, password hashing
+│   │       │   ├── dependencies.py        # FastAPI Depends: get_db, get_current_user, check_tier
+│   │       │   ├── exceptions.py          # Custom exceptions + error handlers
+│   │       │   ├── rate_limit.py          # Redis-based rate limiter middleware
+│   │       │   └── middleware.py          # CORS, request logging, error handling
+│   │       │
+│   │       ├── tasks/                      # Celery background tasks
+│   │       │   ├── __init__.py            # Celery app configuration
+│   │       │   ├── reminders.py           # Check due reminders → send email
+│   │       │   ├── exports.py             # Generate CSV files async
+│   │       │   └── cleanup.py             # Purge expired cache, old search logs
+│   │       │
+│   │       └── migrations/                 # Alembic migrations
+│   │           ├── env.py                 # Alembic environment config
+│   │           ├── script.py.mako         # Migration template
+│   │           └── versions/              # Migration files (auto-generated)
+│   │               └── 001_initial.py
+│   │
+│   ├── tests/                              # Backend test suite
+│   │   ├── conftest.py                    # Test fixtures: app, db, client, auth
+│   │   ├── test_api/
+│   │   │   ├── test_auth.py
+│   │   │   ├── test_search.py
+│   │   │   ├── test_leads.py
+│   │   │   ├── test_notes.py
+│   │   │   ├── test_reminders.py
+│   │   │   ├── test_billing.py
+│   │   │   └── test_pipeline.py
+│   │   ├── test_services/
+│   │   │   ├── test_search_service.py
+│   │   │   ├── test_lead_service.py
+│   │   │   ├── test_billing_service.py
+│   │   │   └── test_reminder_service.py
+│   │   ├── test_integrations/
+│   │   │   ├── test_google_places.py     # Mock API responses
+│   │   │   └── test_stripe.py            # Mock webhook events
+│   │   └── fixtures/
+│   │       ├── google_places_response.json
+│   │       ├── yelp_response.json
+│   │       └── stripe_events.json
+│   │
+│   ├── pyproject.toml                      # Python project config
+│   ├── alembic.ini                         # Alembic config
+│   ├── Dockerfile                          # Backend container image
+│   ├── docker-compose.yml                  # Local dev: API + Postgres + Redis
+│   ├── .env.example                        # Environment variable template
+│   └── Makefile                            # Dev commands
+│
+├── web/                                    # Next.js frontend
+│   ├── src/
+│   │   ├── app/                            # Next.js App Router
+│   │   │   ├── layout.tsx                 # Root layout (fonts, providers)
+│   │   │   ├── globals.css                # Tailwind base styles
+│   │   │   │
+│   │   │   ├── (marketing)/               # Public pages (SSR for SEO)
+│   │   │   │   ├── layout.tsx             # Marketing layout (header + footer)
+│   │   │   │   ├── page.tsx               # Landing page / homepage
+│   │   │   │   ├── pricing/page.tsx       # Pricing comparison
+│   │   │   │   └── blog/                  # SEO blog posts (MDX)
+│   │   │   │       ├── page.tsx           # Blog index
+│   │   │   │       └── [slug]/page.tsx    # Blog post
+│   │   │   │
+│   │   │   ├── (auth)/                    # Auth pages
+│   │   │   │   ├── layout.tsx             # Centered card layout
+│   │   │   │   ├── login/page.tsx         # Email + password / magic link
+│   │   │   │   ├── signup/page.tsx        # Registration form
+│   │   │   │   └── verify/page.tsx        # Email verification handler
+│   │   │   │
+│   │   │   └── (dashboard)/               # Protected app pages
+│   │   │       ├── layout.tsx             # Dashboard layout (sidebar + topbar)
+│   │   │       ├── page.tsx               # Dashboard home (stats + reminders)
+│   │   │       ├── search/page.tsx        # Business search
+│   │   │       ├── leads/
+│   │   │       │   ├── page.tsx           # Leads list/grid
+│   │   │       │   └── [id]/page.tsx      # Lead detail + notes + reminders
+│   │   │       ├── pipeline/page.tsx      # Kanban board
+│   │   │       ├── reminders/page.tsx     # Reminders calendar
+│   │   │       ├── analytics/page.tsx     # Charts and metrics
+│   │   │       ├── settings/page.tsx      # User settings
+│   │   │       ├── billing/page.tsx       # Subscription management
+│   │   │       └── team/page.tsx          # Team management (Pro/Agency)
+│   │   │
+│   │   ├── components/
+│   │   │   ├── ui/                        # shadcn/ui primitives
+│   │   │   │   ├── button.tsx
+│   │   │   │   ├── card.tsx
+│   │   │   │   ├── input.tsx
+│   │   │   │   ├── badge.tsx
+│   │   │   │   ├── dialog.tsx
+│   │   │   │   ├── dropdown-menu.tsx
+│   │   │   │   ├── toast.tsx
+│   │   │   │   ├── skeleton.tsx
+│   │   │   │   ├── table.tsx
+│   │   │   │   ├── tabs.tsx
+│   │   │   │   └── ... (other shadcn components)
+│   │   │   │
+│   │   │   ├── layout/
+│   │   │   │   ├── sidebar.tsx            # Dashboard sidebar navigation
+│   │   │   │   ├── topbar.tsx             # Top bar with user menu
+│   │   │   │   ├── mobile-nav.tsx         # Mobile hamburger menu
+│   │   │   │   ├── marketing-header.tsx   # Public page header
+│   │   │   │   └── marketing-footer.tsx   # Public page footer
+│   │   │   │
+│   │   │   ├── search/
+│   │   │   │   ├── search-form.tsx        # Category + location + radius inputs
+│   │   │   │   ├── search-results.tsx     # Results grid
+│   │   │   │   ├── business-card.tsx      # Single result card with [Save] button
+│   │   │   │   └── search-map.tsx         # Map view of results (Phase 8)
+│   │   │   │
+│   │   │   ├── leads/
+│   │   │   │   ├── leads-table.tsx        # Leads list/table component
+│   │   │   │   ├── lead-card.tsx          # Lead summary card
+│   │   │   │   ├── lead-detail.tsx        # Full lead detail panel
+│   │   │   │   ├── note-list.tsx          # Notes timeline
+│   │   │   │   ├── note-form.tsx          # Add/edit note form
+│   │   │   │   ├── reminder-list.tsx      # Reminders for a lead
+│   │   │   │   ├── reminder-form.tsx      # Add/edit reminder form
+│   │   │   │   ├── status-badge.tsx       # Color-coded status indicator
+│   │   │   │   ├── tag-selector.tsx       # Tag picker with create
+│   │   │   │   └── bulk-actions.tsx       # Bulk action toolbar
+│   │   │   │
+│   │   │   ├── pipeline/
+│   │   │   │   ├── kanban-board.tsx       # Drag-and-drop pipeline board
+│   │   │   │   ├── kanban-column.tsx      # Single status column
+│   │   │   │   └── kanban-card.tsx        # Lead card in kanban
+│   │   │   │
+│   │   │   ├── dashboard/
+│   │   │   │   ├── stat-cards.tsx         # KPI summary cards
+│   │   │   │   ├── reminders-today.tsx    # Due-today reminder list
+│   │   │   │   └── recent-activity.tsx    # Activity feed
+│   │   │   │
+│   │   │   ├── billing/
+│   │   │   │   ├── pricing-table.tsx      # Tier comparison table
+│   │   │   │   ├── usage-meter.tsx        # Usage progress bar
+│   │   │   │   └── upgrade-modal.tsx      # Upgrade prompt modal
+│   │   │   │
+│   │   │   └── analytics/
+│   │   │       ├── funnel-chart.tsx       # Conversion funnel visualization
+│   │   │       ├── leads-by-status.tsx    # Pie/bar chart by status
+│   │   │       └── leads-over-time.tsx    # Line chart over time
+│   │   │
+│   │   ├── lib/
+│   │   │   ├── api.ts                     # Fetch wrapper with auth headers
+│   │   │   ├── auth.ts                    # Token storage, refresh, redirect
+│   │   │   ├── utils.ts                   # Shared utilities (formatDate, etc.)
+│   │   │   └── constants.ts               # Status colors, tier names, etc.
+│   │   │
+│   │   ├── hooks/
+│   │   │   ├── use-leads.ts               # TanStack Query hooks for leads
+│   │   │   ├── use-search.ts              # Search mutation hook
+│   │   │   ├── use-reminders.ts           # Reminders query hooks
+│   │   │   ├── use-auth.ts                # Auth state hook
+│   │   │   └── use-billing.ts             # Subscription info hook
+│   │   │
+│   │   ├── stores/
+│   │   │   └── app-store.ts               # Zustand: UI state, sidebar, modals
+│   │   │
+│   │   └── types/
+│   │       └── index.ts                   # Shared TypeScript types
+│   │
+│   ├── public/
+│   │   ├── og-image.png                   # Open Graph social sharing image
+│   │   ├── favicon.ico
+│   │   └── screenshots/                   # Product screenshots for landing page
+│   │
+│   ├── package.json
+│   ├── next.config.js
+│   ├── tailwind.config.ts
+│   ├── tsconfig.json
+│   ├── components.json                    # shadcn/ui config
+│   └── .env.local.example
+│
 ├── .github/
 │   ├── workflows/
-│   │   ├── ci.yml                         # CI: lint, type-check, test on push/PR
-│   │   └── release.yml                    # Build executables + publish on tag
+│   │   ├── api-ci.yml                     # Backend: lint, type-check, test
+│   │   ├── web-ci.yml                     # Frontend: lint, type-check, build
+│   │   └── deploy.yml                     # Deploy on push to main
 │   ├── ISSUE_TEMPLATE/
-│   │   ├── bug_report.md                  # Bug report template
-│   │   └── feature_request.md             # Feature request template
-│   └── pull_request_template.md           # PR description template
+│   │   ├── bug_report.md
+│   │   └── feature_request.md
+│   └── pull_request_template.md
 │
-├── docs/
-│   ├── constitution.md                    # Project vision, scope, principles
-│   ├── blueprint.md                       # System architecture, components
-│   ├── artifacts.md                       # Data models, file formats, APIs
-│   ├── implementation-guide.md            # Phased build plan
-│   └── skeleton.md                        # This file
-│
-├── src/
-│   └── mindnodes/                         # Main application package
-│       ├── __init__.py                    # __version__, public API re-exports
-│       ├── __main__.py                    # Entry: python -m mindnodes
-│       ├── app.py                         # QApplication subclass, main()
-│       ├── constants.py                   # App name, version, paths, defaults
-│       │
-│       ├── models/                        # Domain model layer
-│       │   ├── __init__.py                # Re-exports all model classes
-│       │   ├── workbook.py                # Workbook
-│       │   ├── sheet.py                   # Sheet
-│       │   ├── topic.py                   # Topic + tree traversal utilities
-│       │   ├── relationship.py            # Relationship
-│       │   ├── boundary.py                # Boundary
-│       │   ├── summary.py                 # Summary
-│       │   ├── callout.py                 # Callout
-│       │   ├── notes.py                   # Notes, PlainContent, HtmlContent
-│       │   ├── style.py                   # Style, StyleProperties
-│       │   ├── theme.py                   # Theme, MapStyle
-│       │   ├── markers.py                 # MarkerRef, MARKER_CATALOG
-│       │   ├── enums.py                   # StructureClass, StyleType, Shape
-│       │   ├── types.py                   # Position, ImageRef, BranchStyle
-│       │   ├── validators.py              # Cross-model validation functions
-│       │   └── factory.py                 # create_workbook(), create_topic()
-│       │
-│       ├── commands/                      # Undo/redo command layer
-│       │   ├── __init__.py                # Re-exports command classes
-│       │   ├── base.py                    # MindNodeCommand(QUndoCommand)
-│       │   ├── topic_commands.py          # Add/Delete/Edit/Move/Reorder/Fold
-│       │   ├── relationship_commands.py   # Add/Delete relationship
-│       │   ├── style_commands.py          # ChangeStyle, ChangeTheme
-│       │   ├── boundary_commands.py       # Add/Delete boundary
-│       │   ├── summary_commands.py        # Add/Delete summary
-│       │   ├── callout_commands.py        # Add/Delete callout
-│       │   ├── marker_commands.py         # Add/Remove marker
-│       │   ├── notes_commands.py          # EditNotes
-│       │   ├── batch.py                   # BatchCommand (atomic multi-op)
-│       │   └── clipboard.py              # Copy/Cut/Paste logic
-│       │
-│       ├── layout/                        # Layout algorithm engine
-│       │   ├── __init__.py                # Re-exports layout classes
-│       │   ├── base.py                    # LayoutAlgorithm ABC, LayoutConfig
-│       │   ├── types.py                   # NodeGeometry, ConnectorPoint
-│       │   ├── registry.py                # LayoutRegistry: structureClass → class
-│       │   ├── radial_map.py              # Balanced radial mind map
-│       │   ├── logic_chart.py             # Left/right logic chart
-│       │   ├── org_chart.py               # Up/down organization chart
-│       │   ├── tree_chart.py              # Indented tree (left/right)
-│       │   ├── brace_map.py               # Brace-connected grouping
-│       │   ├── timeline.py                # Horizontal/vertical timeline
-│       │   ├── fishbone.py                # Ishikawa cause-effect diagram
-│       │   ├── matrix.py                  # Row/column matrix grid
-│       │   ├── tree_table.py              # Tree + table hybrid
-│       │   ├── animation.py               # Layout transition animations
-│       │   └── utils.py                   # Shared geometry utilities
-│       │
-│       ├── ui/                            # Presentation layer
-│       │   ├── __init__.py
-│       │   ├── main_window.py             # QMainWindow subclass
-│       │   ├── menu_bar.py                # Menu bar construction + actions
-│       │   ├── toolbar.py                 # Toolbar construction
-│       │   ├── status_bar.py              # Status bar (zoom, node count)
-│       │   ├── tab_manager.py             # QTabWidget for sheet tabs
-│       │   ├── shortcuts.py               # Keyboard shortcut manager
-│       │   │
-│       │   ├── canvas/                    # QGraphicsView/Scene layer
-│       │   │   ├── __init__.py
-│       │   │   ├── scene.py               # MindMapScene(QGraphicsScene)
-│       │   │   ├── view.py                # MindMapView(QGraphicsView)
-│       │   │   ├── scene_builder.py       # Model → Scene item sync
-│       │   │   ├── minimap.py             # Minimap overlay widget
-│       │   │   ├── grid.py                # Background grid/wallpaper
-│       │   │   └── items/                 # Visual item classes
-│       │   │       ├── __init__.py
-│       │   │       ├── base_item.py       # Shared base for all items
-│       │   │       ├── topic_item.py      # Topic node rendering
-│       │   │       ├── branch_item.py     # Parent-child connector lines
-│       │   │       ├── relationship_item.py   # Relationship arrows
-│       │   │       ├── boundary_item.py   # Boundary region shapes
-│       │   │       ├── summary_item.py    # Summary bracket shapes
-│       │   │       ├── callout_item.py    # Callout bubble shapes
-│       │   │       └── floating_topic_item.py # Floating topic rendering
-│       │   │
-│       │   ├── panels/                    # Dock widget panels
-│       │   │   ├── __init__.py
-│       │   │   ├── properties_panel.py    # Selected-node property editor
-│       │   │   ├── outline_panel.py       # QTreeView outline of topics
-│       │   │   ├── marker_panel.py        # Marker/icon browser grid
-│       │   │   ├── search_panel.py        # Search and find-replace
-│       │   │   └── theme_panel.py         # Theme gallery + editor
-│       │   │
-│       │   ├── dialogs/                   # Modal and modeless dialogs
-│       │   │   ├── __init__.py
-│       │   │   ├── about_dialog.py        # About Mind-Nodes
-│       │   │   ├── settings_dialog.py     # Application preferences
-│       │   │   ├── export_dialog.py       # Export format + options
-│       │   │   ├── print_dialog.py        # Print configuration
-│       │   │   ├── hyperlink_dialog.py    # Hyperlink URL editor
-│       │   │   └── image_dialog.py        # Image attachment chooser
-│       │   │
-│       │   └── widgets/                   # Reusable custom widgets
-│       │       ├── __init__.py
-│       │       ├── color_picker.py        # Color selector with swatches
-│       │       ├── font_picker.py         # Font family/size/weight
-│       │       ├── icon_button.py         # Toolbar icon button
-│       │       └── zoom_slider.py         # Zoom level slider
-│       │
-│       ├── io/                            # File I/O layer
-│       │   ├── __init__.py
-│       │   ├── base.py                    # FileHandler ABC, Exporter ABC
-│       │   ├── registry.py                # FileHandlerRegistry
-│       │   ├── xmind/                     # XMind format handler
-│       │   │   ├── __init__.py            # XMindHandler facade
-│       │   │   ├── reader.py              # Parse .xmind ZIP → Workbook
-│       │   │   ├── writer.py              # Serialize Workbook → .xmind ZIP
-│       │   │   ├── schema.py              # Field name mappings + constants
-│       │   │   └── thumbnail.py           # Generate 256x256 thumbnail
-│       │   ├── mindnodes_handler.py       # Native .mindnodes format
-│       │   ├── freemind_handler.py        # .mm XML import/export
-│       │   ├── opml_handler.py            # .opml import/export
-│       │   ├── markdown_handler.py        # .md import/export
-│       │   └── exporters/                 # Export-only formats
-│       │       ├── __init__.py
-│       │       ├── png_exporter.py        # PNG raster export
-│       │       ├── svg_exporter.py        # SVG vector export
-│       │       └── pdf_exporter.py        # PDF document export
-│       │
-│       ├── plugins/                       # Plugin system
-│       │   ├── __init__.py
-│       │   ├── base.py                    # MindNodesPlugin ABC
-│       │   ├── loader.py                  # Plugin discovery via entry_points
-│       │   └── manager.py                 # Plugin lifecycle management
-│       │
-│       ├── features/                      # Advanced feature modules
-│       │   ├── __init__.py
-│       │   ├── presentation.py            # Slideshow/presentation mode
-│       │   ├── autosave.py                # Auto-save + crash recovery
-│       │   ├── recent_files.py            # Recent files tracking
-│       │   └── print_support.py           # QPrinter integration
-│       │
-│       ├── themes/                        # Built-in theme resources
-│       │   ├── __init__.py
-│       │   ├── manager.py                 # Theme loading + application
-│       │   └── builtin/                   # Predefined theme JSON files
-│       │       ├── default.json           # Clean neutral theme
-│       │       ├── dark.json              # Dark background, light text
-│       │       ├── snowbrush.json         # Pastel blues and whites
-│       │       ├── robust.json            # Bold professional colors
-│       │       ├── business.json          # Corporate blue and gray
-│       │       ├── fresh.json             # Bright greens and yellows
-│       │       ├── ocean.json             # Blues and teals
-│       │       ├── forest.json            # Greens and browns
-│       │       ├── sunset.json            # Oranges and reds
-│       │       └── monochrome.json        # Grayscale
-│       │
-│       ├── resources/                     # Static resources
-│       │   ├── icons/                     # Application icons
-│       │   │   ├── app_icon.svg           # Application icon
-│       │   │   ├── toolbar/               # Toolbar action icons (SVG)
-│       │   │   │   ├── new.svg
-│       │   │   │   ├── open.svg
-│       │   │   │   ├── save.svg
-│       │   │   │   ├── undo.svg
-│       │   │   │   ├── redo.svg
-│       │   │   │   ├── add_topic.svg
-│       │   │   │   ├── add_subtopic.svg
-│       │   │   │   ├── delete.svg
-│       │   │   │   ├── zoom_in.svg
-│       │   │   │   ├── zoom_out.svg
-│       │   │   │   ├── zoom_fit.svg
-│       │   │   │   └── export.svg
-│       │   │   └── markers/               # 350+ marker icons by category
-│       │   │       ├── priority/          # priority-1.svg through priority-9.svg
-│       │   │       ├── smiley/            # smiley-smile.svg, etc.
-│       │   │       ├── task/              # task-start.svg, etc.
-│       │   │       ├── flag/              # flag-red.svg, etc.
-│       │   │       ├── star/              # star-red.svg, etc.
-│       │   │       ├── arrow/             # arrow-up.svg, etc.
-│       │   │       ├── symbol/            # symbol-plus.svg, etc.
-│       │   │       ├── month/             # month-jan.svg, etc.
-│       │   │       ├── week/              # week-mon.svg, etc.
-│       │   │       └── people/            # people-red.svg, etc.
-│       │   ├── styles/                    # Default stylesheets
-│       │   │   └── default.qss            # Qt stylesheet for app widgets
-│       │   └── wallpapers/                # Canvas background images
-│       │       ├── grid_light.png
-│       │       ├── grid_dark.png
-│       │       └── paper.png
-│       │
-│       └── utils/                         # Shared utilities
-│           ├── __init__.py
-│           ├── geometry.py                # Point, Rect, Bezier math
-│           ├── color.py                   # Color parsing, palette generation
-│           ├── signals.py                 # Custom signal/event bus helpers
-│           ├── settings.py                # QSettings wrapper, config manager
-│           └── logging_config.py          # Logging setup
-│
-├── tests/                                 # Test suite (mirrors src layout)
-│   ├── conftest.py                        # Shared fixtures, sample workbooks
-│   ├── test_models/
-│   │   ├── test_workbook.py
-│   │   ├── test_sheet.py
-│   │   ├── test_topic.py
-│   │   ├── test_relationship.py
-│   │   ├── test_style.py
-│   │   ├── test_theme.py
-│   │   ├── test_validators.py
-│   │   └── test_factory.py
-│   ├── test_commands/
-│   │   ├── test_topic_commands.py
-│   │   ├── test_relationship_commands.py
-│   │   ├── test_style_commands.py
-│   │   ├── test_batch_command.py
-│   │   └── test_clipboard.py
-│   ├── test_layout/
-│   │   ├── test_radial_map.py
-│   │   ├── test_logic_chart.py
-│   │   ├── test_org_chart.py
-│   │   ├── test_tree_chart.py
-│   │   ├── test_brace_map.py
-│   │   ├── test_timeline.py
-│   │   ├── test_fishbone.py
-│   │   ├── test_matrix.py
-│   │   ├── test_tree_table.py
-│   │   └── test_layout_registry.py
-│   ├── test_io/
-│   │   ├── test_xmind_reader.py
-│   │   ├── test_xmind_writer.py
-│   │   ├── test_xmind_roundtrip.py
-│   │   ├── test_freemind.py
-│   │   ├── test_opml.py
-│   │   ├── test_markdown.py
-│   │   ├── test_png_exporter.py
-│   │   ├── test_svg_exporter.py
-│   │   ├── test_pdf_exporter.py
-│   │   └── test_registry.py
-│   ├── test_ui/
-│   │   ├── test_main_window.py
-│   │   ├── test_scene.py
-│   │   ├── test_topic_item.py
-│   │   ├── test_view.py
-│   │   ├── test_outline_panel.py
-│   │   ├── test_relationship_item.py
-│   │   └── test_boundary_item.py
-│   ├── test_plugins/
-│   │   └── test_loader.py
-│   ├── test_features/
-│   │   ├── test_presentation.py
-│   │   └── test_autosave.py
-│   ├── test_themes/
-│   │   └── test_theme_manager.py
-│   ├── fixtures/                          # Test data files
-│   │   ├── sample_basic.xmind            # Simple 3-level map
-│   │   ├── sample_complex.xmind          # All feature types
-│   │   ├── sample_relationships.xmind    # Map with relationships
-│   │   ├── sample_multisheet.xmind       # Workbook with 3 sheets
-│   │   ├── sample.mm                     # FreeMind test file
-│   │   ├── sample.opml                   # OPML test file
-│   │   └── sample.md                     # Markdown test file
-│   └── visual_regression/                 # Layout screenshot tests
-│       ├── conftest.py                    # Screenshot capture fixtures
-│       └── reference/                     # Expected reference screenshots
-│           ├── radial_map_basic.png
-│           ├── logic_chart_basic.png
-│           ├── org_chart_basic.png
-│           ├── tree_chart_basic.png
-│           ├── brace_map_basic.png
-│           ├── timeline_basic.png
-│           ├── fishbone_basic.png
-│           ├── matrix_basic.png
-│           └── tree_table_basic.png
-│
-├── scripts/                               # Development and build scripts
-│   ├── build_exe.py                       # PyInstaller/Nuitka build script
-│   ├── generate_markers.py                # Generate marker catalog from SVGs
-│   └── create_sample_xmind.py             # Generate test .xmind fixtures
-│
-├── pyproject.toml                         # Project metadata + all tool config
-├── README.md                              # Project overview, install, quickstart
-├── CHANGELOG.md                           # Version changelog
-├── CONTRIBUTING.md                        # Contribution guidelines
-├── LICENSE                                # MIT License
-├── .gitignore                             # Git ignore rules
-├── .pre-commit-config.yaml                # Pre-commit hooks config
-└── Makefile                               # Common dev commands
+├── README.md
+├── CHANGELOG.md
+├── LICENSE                                # Proprietary (or choose license)
+└── .gitignore
 ```
 
 ---
 
-## 2. Module Descriptions
+## 2. Backend Dependencies
 
-### 2.1 `src/mindnodes/models/` — Domain Model Layer
-
-**Dependencies:** `pydantic`, `uuid` (stdlib). No project-internal dependencies.
-
-| Module | Responsibility |
-|--------|---------------|
-| `workbook.py` | `Workbook` class — top-level container with sheets list, metadata |
-| `sheet.py` | `Sheet` class — single mind map page with root topic, relationships, theme |
-| `topic.py` | `Topic` class — recursive tree node with children, markers, notes, style; tree traversal functions (`walk_depth_first`, `find_topic_by_id`, etc.) |
-| `relationship.py` | `Relationship` class — freeform arrow between two topics |
-| `boundary.py` | `Boundary` class — visual grouping of sibling topic range |
-| `summary.py` | `Summary` class — bracket annotation spanning sibling range |
-| `callout.py` | `Callout` class — speech bubble annotation |
-| `notes.py` | `Notes`, `PlainContent`, `HtmlContent` — rich text notes |
-| `style.py` | `Style`, `StyleProperties` — visual properties for any element |
-| `theme.py` | `Theme`, `MapStyle` — complete visual theme with color palette |
-| `markers.py` | `MarkerRef` class, `MARKER_CATALOG` dict — marker icon taxonomy |
-| `enums.py` | `StructureClass`, `StyleType`, `Shape` enums |
-| `types.py` | `Position`, `ImageRef`, `BranchStyle` — value objects |
-| `validators.py` | Cross-model validation: cycle detection, ID uniqueness, range bounds |
-| `factory.py` | `create_workbook()`, `create_sheet()`, `create_topic()` — convenience constructors |
-
-### 2.2 `src/mindnodes/commands/` — Command Layer
-
-**Dependencies:** `models`, `PySide6.QtWidgets.QUndoCommand`
-
-| Module | Responsibility |
-|--------|---------------|
-| `base.py` | `MindNodeCommand(QUndoCommand)` — base class for all undoable operations |
-| `topic_commands.py` | `AddTopicCommand`, `DeleteTopicCommand`, `EditTopicTitleCommand`, `MoveTopicCommand`, `ReorderChildrenCommand`, `ReparentTopicCommand`, `ToggleFoldCommand` |
-| `relationship_commands.py` | `AddRelationshipCommand`, `DeleteRelationshipCommand` |
-| `style_commands.py` | `ChangeStyleCommand`, `ChangeThemeCommand` |
-| `boundary_commands.py` | `AddBoundaryCommand`, `DeleteBoundaryCommand` |
-| `summary_commands.py` | `AddSummaryCommand`, `DeleteSummaryCommand` |
-| `callout_commands.py` | `AddCalloutCommand`, `DeleteCalloutCommand` |
-| `marker_commands.py` | `AddMarkerCommand`, `RemoveMarkerCommand` |
-| `notes_commands.py` | `EditNotesCommand` |
-| `batch.py` | `BatchCommand` — wraps multiple sub-commands for atomic undo/redo |
-| `clipboard.py` | Copy/cut/paste logic — serialize topics to JSON, push to QClipboard |
-
-### 2.3 `src/mindnodes/layout/` — Layout Engine
-
-**Dependencies:** `models` (for Topic tree), `types` (for NodeGeometry)
-
-| Module | Responsibility |
-|--------|---------------|
-| `base.py` | `LayoutAlgorithm` ABC with `layout()` and `structure_class()` methods; `LayoutConfig` dataclass |
-| `types.py` | `NodeGeometry` dataclass (x, y, width, height, connectors, branch points) |
-| `registry.py` | `LayoutRegistry` — maps structureClass strings to algorithm classes |
-| `radial_map.py` | `RadialMapLayout` — balanced radial expansion from center (default) |
-| `logic_chart.py` | `LogicChartLayout` — horizontal Reingold-Tilford tree |
-| `org_chart.py` | `OrgChartLayout` — vertical hierarchy chart |
-| `tree_chart.py` | `TreeChartLayout` — indented tree structure |
-| `brace_map.py` | `BraceMapLayout` — brace-connected grouping |
-| `timeline.py` | `TimelineLayout` — chronological horizontal/vertical |
-| `fishbone.py` | `FishboneLayout` — Ishikawa cause-effect diagram |
-| `matrix.py` | `MatrixLayout` — grid row/column arrangement |
-| `tree_table.py` | `TreeTableLayout` — tree + table hybrid |
-| `animation.py` | `LayoutAnimator` — QPropertyAnimation helpers for smooth transitions |
-| `utils.py` | `measure_topic_size()`, `compute_subtree_bounds()`, Bezier curve math |
-
-### 2.4 `src/mindnodes/ui/` — Presentation Layer
-
-**Dependencies:** `models`, `commands`, `layout`, `io`, `PySide6`
-
-| Module | Responsibility |
-|--------|---------------|
-| `main_window.py` | `MainWindow(QMainWindow)` — central widget, dock areas, window lifecycle |
-| `menu_bar.py` | Menu bar construction, action connections, recent files submenu |
-| `toolbar.py` | Toolbar with icon buttons and layout selector dropdown |
-| `status_bar.py` | Zoom percentage, node count, modified indicator, auto-save status |
-| `tab_manager.py` | `QTabWidget` managing one `MindMapView` per sheet |
-| `shortcuts.py` | `ShortcutManager` — load/apply keybindings from settings |
-| `canvas/scene.py` | `MindMapScene(QGraphicsScene)` — item management, selection, background |
-| `canvas/view.py` | `MindMapView(QGraphicsView)` — zoom, pan, viewport culling |
-| `canvas/scene_builder.py` | `SceneBuilder` — creates/updates visual items from model + layout |
-| `canvas/minimap.py` | `MindMapMinimap(QWidget)` — overview overlay with viewport indicator |
-| `canvas/grid.py` | Background grid and wallpaper rendering |
-| `canvas/items/topic_item.py` | `TopicItem(QGraphicsObject)` — renders node shape, text, icons |
-| `canvas/items/branch_item.py` | `BranchItem(QGraphicsItem)` — renders connector lines |
-| `canvas/items/relationship_item.py` | `RelationshipItem` — renders arrow paths with labels |
-| `canvas/items/boundary_item.py` | `BoundaryItem` — renders enclosing shapes |
-| `canvas/items/summary_item.py` | `SummaryItem` — renders bracket + summary topic |
-| `canvas/items/callout_item.py` | `CalloutItem` — renders speech bubble + connector |
-| `canvas/items/floating_topic_item.py` | `FloatingTopicItem` — standalone topic at canvas position |
-| `panels/properties_panel.py` | Context-sensitive property editor for selected items |
-| `panels/outline_panel.py` | `QTreeView` with bidirectional sync to canvas |
-| `panels/marker_panel.py` | Categorized marker icon grid with search |
-| `panels/search_panel.py` | Full-text search + find & replace |
-| `panels/theme_panel.py` | Theme gallery with preview thumbnails |
-| `dialogs/settings_dialog.py` | Tabbed settings: Appearance, Behavior, Keybindings, etc. |
-| `dialogs/export_dialog.py` | Export format selector + format-specific options |
-| `dialogs/about_dialog.py` | About dialog with version, license info |
-| `dialogs/hyperlink_dialog.py` | URL input dialog for topic hyperlinks |
-| `dialogs/image_dialog.py` | Image file chooser for topic image attachment |
-| `dialogs/print_dialog.py` | Print configuration via QPrintDialog |
-| `widgets/color_picker.py` | Color selector with swatch grid and custom picker |
-| `widgets/font_picker.py` | Font family, size, weight selector |
-| `widgets/icon_button.py` | Styled toolbar button with icon and tooltip |
-| `widgets/zoom_slider.py` | Zoom level slider (10%–500%) |
-
-### 2.5 `src/mindnodes/io/` — File I/O Layer
-
-**Dependencies:** `models`, `zipfile`, `json`, `lxml`, `Pillow`, `svgwrite`, `reportlab`, `markdown-it-py`
-
-| Module | Responsibility |
-|--------|---------------|
-| `base.py` | `FileHandler` ABC (bidirectional) and `Exporter` ABC (export-only) |
-| `registry.py` | `FileHandlerRegistry` — maps extensions to handlers, generates file filters |
-| `xmind/__init__.py` | `XMindHandler(FileHandler)` — facade combining reader + writer |
-| `xmind/reader.py` | `XMindReader` — parse .xmind ZIP → Workbook model |
-| `xmind/writer.py` | `XMindWriter` — serialize Workbook → .xmind ZIP |
-| `xmind/schema.py` | Field name mapping constants (camelCase ↔ snake_case, style properties) |
-| `xmind/thumbnail.py` | Render scene to 256x256 PNG thumbnail for ZIP archive |
-| `mindnodes_handler.py` | `MindNodesHandler` — extended .xmind format with callouts, plugin data |
-| `freemind_handler.py` | `FreeMindHandler` — .mm XML import/export |
-| `opml_handler.py` | `OPMLHandler` — .opml XML import/export |
-| `markdown_handler.py` | `MarkdownHandler` — .md heading/list import/export |
-| `exporters/png_exporter.py` | `PNGExporter` — render scene to PNG image |
-| `exporters/svg_exporter.py` | `SVGExporter` — generate SVG from scene items |
-| `exporters/pdf_exporter.py` | `PDFExporter` — render to PDF via reportlab |
-
-### 2.6 `src/mindnodes/plugins/` — Plugin System
-
-**Dependencies:** `models`, `layout.base`, `io.base`, `importlib.metadata`
-
-| Module | Responsibility |
-|--------|---------------|
-| `base.py` | `MindNodesPlugin` ABC — plugin interface with lifecycle hooks and extension point methods |
-| `loader.py` | `PluginLoader` — discovers plugins via `entry_points(group="mindnodes.plugins")` |
-| `manager.py` | `PluginManager` — enable/disable plugins, manage lifecycle, dependency resolution |
-
-### 2.7 `src/mindnodes/features/` — Advanced Features
-
-**Dependencies:** `models`, `ui`, `io`, `PySide6`
-
-| Module | Responsibility |
-|--------|---------------|
-| `presentation.py` | `PresentationMode` — slideshow walk-through with zoom-to-fit per subtree |
-| `autosave.py` | `AutoSaveManager` — timer-based saves to recovery directory, startup restore |
-| `recent_files.py` | `RecentFilesManager` — track and display recently opened files |
-| `print_support.py` | `PrintManager` — QPrintDialog integration, page setup |
-
-### 2.8 `src/mindnodes/themes/` — Theme Resources
-
-**Dependencies:** `models.theme`, `json`
-
-| Module | Responsibility |
-|--------|---------------|
-| `manager.py` | `ThemeManager` — load built-in and custom themes, smart color generation |
-| `builtin/*.json` | 10 predefined theme files defining styles for all element types |
-
-### 2.9 `src/mindnodes/utils/` — Shared Utilities
-
-**Dependencies:** `stdlib` only. No project-internal dependencies.
-
-| Module | Responsibility |
-|--------|---------------|
-| `geometry.py` | Point arithmetic, rectangle operations, Bezier curve computation, line intersection |
-| `color.py` | Hex color parsing, HSL conversion, complementary color generation, palette creation |
-| `signals.py` | Custom signal/event bus helpers for model-to-UI notification |
-| `settings.py` | `SettingsManager` — QSettings wrapper with typed getters and defaults |
-| `logging_config.py` | Configure Python logging with structured format, file rotation |
-
----
-
-## 3. Dependency Graph
-
-Dependencies flow strictly downward. No circular dependencies are permitted.
-
-```
-                    ┌───────────┐
-                    │   utils   │  ← No project dependencies
-                    └─────┬─────┘
-                          │
-                    ┌─────▼─────┐
-                    │  models   │  ← Depends on: utils
-                    └─────┬─────┘
-                          │
-              ┌───────────┼───────────┐
-              │           │           │
-        ┌─────▼─────┐ ┌──▼───┐ ┌────▼────┐
-        │ commands  │ │layout│ │   io    │  ← Depend on: models
-        └─────┬─────┘ └──┬───┘ └────┬────┘
-              │           │          │
-              └───────────┼──────────┘
-                          │
-                    ┌─────▼─────┐
-                    │    ui     │  ← Depends on: models, commands, layout, io
-                    └─────┬─────┘
-                          │
-                    ┌─────▼─────┐
-                    │   app     │  ← Depends on: ui, io, models, plugins
-                    └───────────┘
-
-        ┌───────────┐
-        │  plugins  │  ← Can access all layers (parallel dependency)
-        └───────────┘
-
-        ┌───────────┐
-        │ features  │  ← Can access: models, ui, io
-        └───────────┘
-
-        ┌───────────┐
-        │  themes   │  ← Depends on: models.theme
-        └───────────┘
-```
-
-**Enforcement:** The module dependency rules should be verified by linting rules that prevent imports from upper layers in lower layers. For example, `models/` must never import from `ui/`.
-
----
-
-## 4. Python Package Dependencies
-
-### 4.1 Runtime Dependencies
-
-```toml
-[project]
-dependencies = [
-    "PySide6>=6.6.0",
-    "pydantic>=2.5.0",
-    "Pillow>=10.0.0",
-    "lxml>=5.0.0",
-    "svgwrite>=1.4.0",
-    "reportlab>=4.0.0",
-    "markdown-it-py>=3.0.0",
-]
-```
-
-| Package | Purpose | Used by |
-|---------|---------|---------|
-| `PySide6` | GUI framework: widgets, graphics, signals, undo stack | `ui/`, `commands/`, `app.py` |
-| `pydantic` | Data model validation and JSON serialization | `models/` |
-| `Pillow` | Image processing, PNG export, thumbnail generation | `io/exporters/`, `io/xmind/` |
-| `lxml` | XML parsing for FreeMind and OPML formats | `io/freemind_handler.py`, `io/opml_handler.py` |
-| `svgwrite` | SVG document generation | `io/exporters/svg_exporter.py` |
-| `reportlab` | PDF document generation | `io/exporters/pdf_exporter.py` |
-| `markdown-it-py` | Markdown parsing | `io/markdown_handler.py` |
-
-### 4.2 Development Dependencies
-
-```toml
-[project.optional-dependencies]
-dev = [
-    "pytest>=7.4.0",
-    "pytest-qt>=4.2.0",
-    "pytest-cov>=4.1.0",
-    "mypy>=1.7.0",
-    "ruff>=0.1.0",
-    "pre-commit>=3.5.0",
-    "sphinx>=7.2.0",
-    "sphinx-rtd-theme>=2.0.0",
-    "nuitka>=1.9.0",
-]
-```
-
-| Package | Purpose |
-|---------|---------|
-| `pytest` | Test framework |
-| `pytest-qt` | Qt widget testing utilities |
-| `pytest-cov` | Test coverage measurement |
-| `mypy` | Static type checking (strict mode) |
-| `ruff` | Linting and code formatting |
-| `pre-commit` | Git hook management |
-| `sphinx` + `sphinx-rtd-theme` | API documentation generation |
-| `nuitka` | Standalone executable compilation |
-
----
-
-## 5. Configuration File Templates
-
-### 5.1 pyproject.toml
+### 2.1 pyproject.toml
 
 ```toml
 [build-system]
@@ -594,195 +285,131 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "mindnodes"
+name = "leadlocal"
 version = "0.1.0"
-description = "An open-source Python mind mapping application with full XMind compatibility"
-readme = "README.md"
-license = "MIT"
-requires-python = ">=3.11"
-authors = [
-    { name = "Mind-Nodes Contributors" },
-]
-keywords = ["mindmap", "xmind", "mind-mapping", "brainstorming", "visualization"]
-classifiers = [
-    "Development Status :: 3 - Alpha",
-    "Environment :: X11 Applications :: Qt",
-    "Intended Audience :: End Users/Desktop",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Topic :: Office/Business",
-]
+description = "Local business lead discovery + mini CRM"
+requires-python = ">=3.12"
 dependencies = [
-    "PySide6>=6.6.0",
+    # Web framework
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.27.0",
+    # Database
+    "sqlalchemy[asyncio]>=2.0.25",
+    "asyncpg>=0.29.0",
+    "alembic>=1.13.0",
+    # Validation
     "pydantic>=2.5.0",
-    "Pillow>=10.0.0",
-    "lxml>=5.0.0",
-    "svgwrite>=1.4.0",
-    "reportlab>=4.0.0",
-    "markdown-it-py>=3.0.0",
+    "pydantic-settings>=2.1.0",
+    # HTTP client (for external APIs)
+    "httpx>=0.27.0",
+    # Auth
+    "PyJWT>=2.8.0",
+    "passlib[bcrypt]>=1.7.4",
+    # Cache + Queue
+    "redis>=5.0.0",
+    "celery[redis]>=5.3.0",
+    # Payments
+    "stripe>=7.0.0",
+    # Email
+    "resend>=0.7.0",
+    # Utilities
+    "python-multipart>=0.0.6",
+    "python-dotenv>=1.0.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.4.0",
-    "pytest-qt>=4.2.0",
+    "pytest-asyncio>=0.23.0",
+    "httpx>=0.27.0",       # For TestClient
     "pytest-cov>=4.1.0",
-    "mypy>=1.7.0",
-    "ruff>=0.1.0",
-    "pre-commit>=3.5.0",
-    "sphinx>=7.2.0",
-    "sphinx-rtd-theme>=2.0.0",
-    "nuitka>=1.9.0",
+    "mypy>=1.8.0",
+    "ruff>=0.2.0",
+    "pre-commit>=3.6.0",
 ]
 
-[project.scripts]
-mindnodes = "mindnodes.app:main"
-
-[project.entry-points."mindnodes.plugins"]
-# Example: my_plugin = "my_plugin_package:MyPlugin"
-
 [tool.ruff]
-target-version = "py311"
+target-version = "py312"
 line-length = 100
 src = ["src"]
 
 [tool.ruff.lint]
-select = [
-    "E",    # pycodestyle errors
-    "W",    # pycodestyle warnings
-    "F",    # pyflakes
-    "I",    # isort
-    "N",    # pep8-naming
-    "UP",   # pyupgrade
-    "B",    # flake8-bugbear
-    "SIM",  # flake8-simplify
-    "TCH",  # flake8-type-checking
-    "RUF",  # ruff-specific rules
-]
-
-[tool.ruff.lint.isort]
-known-first-party = ["mindnodes"]
+select = ["E", "W", "F", "I", "N", "UP", "B", "SIM", "RUF"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 strict = true
-warn_return_any = true
-warn_unused_configs = true
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["PySide6.*", "lxml.*", "svgwrite.*", "reportlab.*"]
+module = ["celery.*", "resend.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra -q --tb=short"
-qt_api = "pyside6"
-
-[tool.coverage.run]
-source = ["mindnodes"]
-
-[tool.coverage.report]
-show_missing = true
-fail_under = 60
+asyncio_mode = "auto"
 ```
 
-### 5.2 .pre-commit-config.yaml
+### 2.2 docker-compose.yml (Local Development)
 
 ```yaml
-repos:
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.1.0
-    hooks:
-      - id: ruff
-        args: [--fix]
-      - id: ruff-format
+version: "3.9"
+services:
+  api:
+    build: .
+    ports: ["8000:8000"]
+    env_file: .env
+    depends_on: [db, redis]
+    volumes: ["./src:/app/src"]
+    command: uvicorn leadlocal.main:app --host 0.0.0.0 --port 8000 --reload
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.7.0
-    hooks:
-      - id: mypy
-        additional_dependencies:
-          - pydantic>=2.5.0
-        args: [--strict]
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: leadlocal
+      POSTGRES_USER: leadlocal
+      POSTGRES_PASSWORD: localdev
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+  celery:
+    build: .
+    env_file: .env
+    depends_on: [db, redis]
+    command: celery -A leadlocal.tasks worker --loglevel=info
+
+  celery-beat:
+    build: .
+    env_file: .env
+    depends_on: [redis]
+    command: celery -A leadlocal.tasks beat --loglevel=info
+
+volumes:
+  pgdata:
 ```
 
-### 5.3 .gitignore
-
-```gitignore
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.egg-info/
-dist/
-build/
-*.egg
-.eggs/
-
-# Virtual environments
-.venv/
-venv/
-env/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-.mypy_cache/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Build artifacts
-*.spec
-*.dmg
-*.msi
-*.deb
-*.rpm
-*.AppImage
-
-# Auto-generated docs
-docs/api/
-
-# Recovery files
-*.recovery
-
-# Environment
-.env
-```
-
-### 5.4 Makefile
+### 2.3 Makefile
 
 ```makefile
-.PHONY: install dev test lint typecheck format build docs clean
-
-install:
-	pip install -e .
+.PHONY: dev test lint typecheck migrate
 
 dev:
-	pip install -e ".[dev]"
-	pre-commit install
+	docker compose up -d db redis
+	uvicorn leadlocal.main:app --reload --host 0.0.0.0 --port 8000
 
 test:
 	pytest tests/ -v --tb=short
 
 test-cov:
-	pytest tests/ --cov=mindnodes --cov-report=html --cov-report=term
+	pytest tests/ --cov=leadlocal --cov-report=html
 
 lint:
 	ruff check src/ tests/
+	ruff format --check src/ tests/
 
 typecheck:
 	mypy src/
@@ -791,168 +418,222 @@ format:
 	ruff format src/ tests/
 	ruff check --fix src/ tests/
 
-build:
-	python scripts/build_exe.py
+migrate:
+	alembic upgrade head
 
-docs:
-	sphinx-build -b html docs/api docs/api/_build
+migrate-new:
+	alembic revision --autogenerate -m "$(msg)"
 
-clean:
-	rm -rf build/ dist/ *.egg-info .pytest_cache .mypy_cache htmlcov .coverage
-	find . -type d -name __pycache__ -exec rm -rf {} +
+celery:
+	celery -A leadlocal.tasks worker --loglevel=info
 
-run:
-	python -m mindnodes
+celery-beat:
+	celery -A leadlocal.tasks beat --loglevel=info
 ```
 
-### 5.5 GitHub Actions CI (.github/workflows/ci.yml)
+---
+
+## 3. Frontend Dependencies
+
+### 3.1 package.json (key dependencies)
+
+```json
+{
+  "dependencies": {
+    "next": "^14.1.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "@tanstack/react-query": "^5.17.0",
+    "zustand": "^4.5.0",
+    "react-hook-form": "^7.49.0",
+    "@hookform/resolvers": "^3.3.0",
+    "zod": "^3.22.0",
+    "recharts": "^2.10.0",
+    "@dnd-kit/core": "^6.1.0",
+    "@dnd-kit/sortable": "^8.0.0",
+    "sonner": "^1.3.0",
+    "date-fns": "^3.3.0",
+    "lucide-react": "^0.312.0",
+    "tailwindcss": "^3.4.0",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.0",
+    "tailwind-merge": "^2.2.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "@types/react": "^18.2.0",
+    "eslint": "^8.56.0",
+    "eslint-config-next": "^14.1.0",
+    "prettier": "^3.2.0",
+    "prettier-plugin-tailwindcss": "^0.5.0"
+  }
+}
+```
+
+---
+
+## 4. CI/CD Configurations
+
+### 4.1 Backend CI (.github/workflows/api-ci.yml)
 
 ```yaml
-name: CI
-
+name: API CI
 on:
   push:
-    branches: [main]
+    paths: ["api/**"]
   pull_request:
-    branches: [main]
+    paths: ["api/**"]
 
 jobs:
   test:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ["3.11", "3.12", "3.13"]
-      fail-fast: false
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_DB: test, POSTGRES_USER: test, POSTGRES_PASSWORD: test }
+        ports: ["5432:5432"]
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
 
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -e ".[dev]"
+        working-directory: api
+      - run: ruff check src/ tests/
+        working-directory: api
+      - run: mypy src/
+        working-directory: api
+      - run: pytest tests/ --cov=leadlocal -v
+        working-directory: api
+        env:
+          DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test
+          REDIS_URL: redis://localhost:6379/0
+          JWT_SECRET_KEY: test-secret-key
+          GOOGLE_PLACES_API_KEY: test-key
+          STRIPE_SECRET_KEY: sk_test_xxx
+          STRIPE_WEBHOOK_SECRET: whsec_test
+```
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
+### 4.2 Frontend CI (.github/workflows/web-ci.yml)
 
-      - name: Install system dependencies (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgl1-mesa-dev libegl1 libxkbcommon0
+```yaml
+name: Web CI
+on:
+  push:
+    paths: ["web/**"]
+  pull_request:
+    paths: ["web/**"]
 
-      - name: Install dependencies
-        run: pip install -e ".[dev]"
-
-      - name: Lint
-        run: ruff check src/ tests/
-
-      - name: Format check
-        run: ruff format --check src/ tests/
-
-      - name: Type check
-        run: mypy src/
-
-      - name: Test
-        run: pytest tests/ --cov=mindnodes --cov-report=xml -v
-
-      - name: Upload coverage
-        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
-        uses: codecov/codecov-action@v3
-        with:
-          file: coverage.xml
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - run: npm ci
+        working-directory: web
+      - run: npm run lint
+        working-directory: web
+      - run: npm run build
+        working-directory: web
 ```
 
 ---
 
-## 6. Entry Point Configuration
+## 5. Environment Files
 
-### 6.1 Console Script
-
-```toml
-[project.scripts]
-mindnodes = "mindnodes.app:main"
-```
-
-After `pip install`, the `mindnodes` command is available system-wide.
-
-### 6.2 Module Execution
+### 5.1 api/.env.example
 
 ```bash
-python -m mindnodes
+# Database
+DATABASE_URL=postgresql+asyncpg://leadlocal:localdev@localhost:5432/leadlocal
+
+# Redis
+REDIS_URL=redis://localhost:6379/0
+
+# Auth
+JWT_SECRET_KEY=change-me-to-random-64-char-string
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES=15
+JWT_REFRESH_TOKEN_EXPIRE_DAYS=7
+
+# Google Places
+GOOGLE_PLACES_API_KEY=your-api-key
+
+# Stripe
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_PUBLISHABLE_KEY=pk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+
+# Email
+RESEND_API_KEY=re_test_...
+FROM_EMAIL=hello@leadlocal.io
+
+# App
+APP_URL=http://localhost:3000
+API_URL=http://localhost:8000
+ENVIRONMENT=development
 ```
 
-This invokes `src/mindnodes/__main__.py`, which calls `mindnodes.app.main()`.
+### 5.2 web/.env.local.example
 
-### 6.3 Plugin Entry Points
-
-Third-party plugins register via `pyproject.toml`:
-
-```toml
-# In the plugin's own pyproject.toml:
-[project.entry-points."mindnodes.plugins"]
-my_plugin = "my_plugin_package:MyPlugin"
-```
-
-Mind-Nodes discovers these at startup via:
-```python
-from importlib.metadata import entry_points
-plugins = entry_points(group="mindnodes.plugins")
-```
-
----
-
-## 7. CONTRIBUTING.md Template
-
-```markdown
-# Contributing to Mind-Nodes
-
-## Development Setup
-
-1. Clone the repository:
-   git clone https://github.com/your-org/mind-nodes.git
-   cd mind-nodes
-
-2. Create a virtual environment:
-   python -m venv .venv
-   source .venv/bin/activate  # Linux/macOS
-   .venv\Scripts\activate     # Windows
-
-3. Install in development mode:
-   make dev
-
-4. Verify setup:
-   make test
-   make lint
-   make typecheck
-
-## Code Style
-
-- Code is formatted and linted with ruff (enforced by pre-commit hooks)
-- Type annotations are required on all public functions (enforced by mypy strict)
-- Follow existing patterns in the codebase
-
-## Testing
-
-- Write tests for all new functionality
-- Place tests in tests/ mirroring the src/ structure
-- Use pytest-qt for UI component tests
-- Run full test suite before submitting: make test
-
-## Pull Request Process
-
-1. Create a feature branch from main
-2. Make your changes with tests
-3. Ensure CI passes: make test && make lint && make typecheck
-4. Submit PR with description of changes
-5. Address review feedback
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+NEXT_PUBLIC_POSTHOG_KEY=phc_...
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
 ---
 
-## 8. Document Cross-References
+## 6. .gitignore
+
+```gitignore
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+.venv/
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+.next/
+out/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+*.log
+```
+
+---
+
+## 7. Document Cross-References
 
 | Topic | Document |
 |-------|----------|
-| Why these technologies were chosen | [blueprint.md](blueprint.md) Section 1.2, Section 2 |
-| What the project aims to build | [constitution.md](constitution.md) Section 4 |
-| Data model details for each module | [artifacts.md](artifacts.md) Section 1 |
-| Build order and phase sequencing | [implementation-guide.md](implementation-guide.md) |
+| Business model and pricing | [constitution.md](constitution.md) |
+| Architecture decisions | [blueprint.md](blueprint.md) |
+| Database schemas and API specs | [artifacts.md](artifacts.md) |
+| Build phases | [implementation-guide.md](implementation-guide.md) |
+| Launch and marketing strategy | [go-to-market.md](go-to-market.md) |

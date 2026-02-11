@@ -1,597 +1,619 @@
-# Mind-Nodes System Architecture Blueprint
+# LeadLocal — System Architecture Blueprint
 
-> The technical architecture document defining how Mind-Nodes is structured, what components exist, how they interact, and the key technology decisions governing the implementation.
+> The technical architecture document defining how LeadLocal is built, what services it integrates, and how all components interact.
 
 ---
 
 ## 1. Architectural Overview
 
-### 1.1 Layered Architecture
-
-Mind-Nodes follows a strict 4-layer architecture. Dependencies flow downward only — upper layers depend on lower layers, never the reverse.
+### 1.1 High-Level Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                   LAYER 1: PRESENTATION                      │
-│  MainWindow │ Canvas (Scene/View) │ Panels │ Dialogs │ Menus │
-├─────────────────────────────────────────────────────────────┤
-│               LAYER 2: APPLICATION LOGIC                     │
-│  Commands (Undo/Redo) │ Controllers │ Services │ Clipboard   │
-├─────────────────────────────────────────────────────────────┤
-│                  LAYER 3: DOMAIN MODEL                       │
-│  Workbook │ Sheet │ Topic │ Relationship │ Style │ Theme     │
-├─────────────────────────────────────────────────────────────┤
-│                 LAYER 4: INFRASTRUCTURE                      │
-│  File I/O │ Layout Engine │ Plugin Loader │ Settings │ Utils  │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                         CLIENTS                                   │
+│  Browser (React/Next.js)  │  Mobile Browser  │  Chrome Extension  │
+└──────────────┬───────────────────────────────────┬───────────────┘
+               │            HTTPS                   │
+┌──────────────▼───────────────────────────────────▼───────────────┐
+│                     REVERSE PROXY (Nginx/Caddy)                   │
+│                     SSL Termination + Rate Limiting                │
+└──────────────┬───────────────────────────────────────────────────┘
+               │
+┌──────────────▼───────────────────────────────────────────────────┐
+│                     API GATEWAY (FastAPI)                          │
+│  Auth Middleware │ Rate Limiter │ Request Validation │ CORS        │
+├──────────────────────────────────────────────────────────────────┤
+│                     APPLICATION SERVICES                          │
+│  SearchService │ LeadService │ PipelineService │ UserService      │
+│  ReminderService │ ExportService │ AnalyticsService               │
+│  BillingService │ TeamService │ IntegrationService                │
+├──────────────────────────────────────────────────────────────────┤
+│                     DATA ACCESS LAYER                             │
+│  SQLAlchemy ORM │ Repository Pattern │ Migration (Alembic)        │
+└───────┬────────────────────┬─────────────────────┬───────────────┘
+        │                    │                     │
+┌───────▼───────┐  ┌────────▼────────┐  ┌────────▼────────┐
+│  PostgreSQL   │  │     Redis       │  │   Object Store  │
+│  (Primary DB) │  │  (Cache + Queue)│  │  (S3/Cloudflare)│
+└───────────────┘  └─────────────────┘  └─────────────────┘
+
+External API Integrations:
+┌──────────────┬──────────────┬──────────────┬──────────────┐
+│ Google Places│  Yelp Fusion │  Foursquare  │  Hunter.io   │
+│     API      │     API      │  Places API  │  (Email)     │
+└──────────────┴──────────────┴──────────────┴──────────────┘
+                                                     │
+Payment + Auth:                                      │
+┌──────────────┬──────────────┐                      │
+│   Stripe     │  SendGrid /  │                      │
+│  (Billing)   │  Resend.com  │                      │
+│              │  (Email)     │                      │
+└──────────────┴──────────────┘
 ```
 
-**Layer 1 — Presentation:** PySide6 widgets, QGraphicsView/QGraphicsScene canvas, dock widget panels, dialogs, menus, and toolbars. Handles user input events and visual rendering.
-
-**Layer 2 — Application Logic:** The Command pattern (QUndoStack) for all model mutations, controllers that translate user gestures into commands, services for cross-cutting concerns (auto-save, search, clipboard).
-
-**Layer 3 — Domain Model:** Pure data classes (Pydantic v2 models) representing the mind map structure. Workbook contains Sheets, each Sheet has a root Topic tree and Relationships. Models emit change signals for observers.
-
-**Layer 4 — Infrastructure:** File I/O handlers (read/write various formats), the layout engine (computes node positions), plugin loader, application settings, and shared utilities.
-
-### 1.2 Key Architectural Decisions
+### 1.2 Key Architecture Decisions
 
 | ADR | Decision | Rationale |
 |-----|----------|-----------|
-| ADR-001 | PySide6 over PyQt6 | LGPL license permits commercial distribution without paid license; identical API surface |
-| ADR-002 | QGraphicsView for canvas | Built-in zoom, pan, selection, BSP spatial indexing, item transformation; purpose-built for 2D interactive graphics |
-| ADR-003 | Command pattern via QUndoStack | PySide6 provides QUndoStack/QUndoCommand natively; supports command merging, macro commands, and clean undo/redo semantics |
-| ADR-004 | Pydantic v2 for domain models | Automatic validation, JSON serialization/deserialization, strong type hints, immutable value objects via `frozen=True` |
-| ADR-005 | Plugin architecture via entry_points | Standard Python packaging mechanism; no custom discovery needed; plugins are installable via pip |
-| ADR-006 | Strict model/view separation | Domain model classes have zero knowledge of rendering; visual items observe model changes via signals |
-| ADR-007 | .xmind as primary format | Industry-standard mind map format; enables interoperability with XMind and other tools |
-| ADR-008 | Python 3.11+ minimum | Structural pattern matching, improved type hints, significant performance improvements over 3.10 |
+| ADR-001 | **Python + FastAPI** backend | Fast development, async support, excellent for API integrations, your existing Python expertise |
+| ADR-002 | **Next.js 14** frontend | SSR for SEO (landing page), React ecosystem, Vercel deployment, App Router for modern patterns |
+| ADR-003 | **PostgreSQL** primary database | Reliable, great JSON support (for caching API responses), full-text search, free on Supabase/Neon |
+| ADR-004 | **Redis** for caching + task queue | Cache Google Places results (reduce API costs), background job queue for reminders |
+| ADR-005 | **Stripe** for billing | Industry standard, excellent Python SDK, handles subscriptions/trials/invoices/webhooks |
+| ADR-006 | **JWT + Magic Links** for auth | Passwordless option reduces friction; JWT for stateless API auth |
+| ADR-007 | **Google Places API (official)** not scraping | Legal compliance, reliable data, no cease-and-desist risk. Key selling point |
+| ADR-008 | **Monolith-first** architecture | Single FastAPI app, not microservices. Faster to build, deploy, debug. Split later if needed |
+| ADR-009 | **Railway/Render** for backend hosting | Simple deployment, managed PostgreSQL, affordable at early scale. Migrate to AWS/GCP later |
+| ADR-010 | **Vercel** for frontend hosting | Free tier, automatic deployments, edge CDN, perfect for Next.js |
 
 ---
 
 ## 2. Technology Stack
 
-### 2.1 Core Runtime
+### 2.1 Backend
 
 | Component | Technology | Version | Purpose |
 |-----------|-----------|---------|---------|
-| Language | Python | 3.11+ | Application runtime |
-| GUI Framework | PySide6 | 6.6+ | Widgets, graphics, signals/slots |
-| Data Models | Pydantic | 2.5+ | Model validation, JSON serialization |
+| Runtime | Python | 3.12+ | API server |
+| Framework | FastAPI | 0.110+ | REST API with automatic OpenAPI docs |
+| ORM | SQLAlchemy | 2.0+ | Database access with async support |
+| Migrations | Alembic | 1.13+ | Schema migration management |
+| Validation | Pydantic | 2.5+ | Request/response validation |
+| Task Queue | Celery + Redis | 5.3+ | Background jobs (reminders, exports) |
+| Caching | Redis | 7+ | API response cache, rate limiting, sessions |
+| HTTP Client | httpx | 0.27+ | Async calls to external APIs |
+| Auth | PyJWT + passlib | - | JWT tokens, password hashing |
+| Email | resend (SDK) | - | Transactional emails (magic links, reminders) |
+| Payments | stripe (SDK) | - | Subscription management |
 
-### 2.2 Key Libraries
+### 2.2 Frontend
 
-| Library | Purpose |
-|---------|---------|
-| `zipfile` (stdlib) | .xmind archive read/write |
-| `json` (stdlib) | content.json parsing/generation |
-| `uuid` (stdlib) | Topic ID generation |
-| `pathlib` (stdlib) | Cross-platform path handling |
-| `logging` (stdlib) | Structured application logging |
-| `lxml` | FreeMind XML import/export |
-| `Pillow` | Image processing, thumbnail generation, PNG export |
-| `svgwrite` | SVG export |
-| `reportlab` | PDF export |
-| `markdown-it-py` | Markdown import/export parsing |
+| Component | Technology | Version | Purpose |
+|-----------|-----------|---------|---------|
+| Framework | Next.js | 14+ | React SSR/SSG + App Router |
+| UI Library | shadcn/ui + Tailwind CSS | - | Pre-built components + utility CSS |
+| State | Zustand | 4+ | Lightweight client state management |
+| Data Fetching | TanStack Query | 5+ | API data fetching with cache/retry |
+| Forms | React Hook Form + Zod | - | Form handling with validation |
+| Maps | react-leaflet or @vis.gl/react-google-maps | - | Map view of leads |
+| Charts | Recharts | 2+ | Analytics dashboard charts |
+| Auth UI | Custom (magic link + password) | - | Login/signup pages |
+| Toast/Notifications | sonner | - | User notifications |
 
-### 2.3 Development Tools
+### 2.3 Infrastructure
 
-| Tool | Purpose |
-|------|---------|
-| `pytest` + `pytest-qt` | Unit, integration, and UI testing |
-| `pytest-cov` | Test coverage measurement |
-| `mypy` | Static type checking (strict mode) |
-| `ruff` | Linting and code formatting |
-| `pre-commit` | Git hook management |
-| `sphinx` + `sphinx-rtd-theme` | API documentation generation |
-| `nuitka` or `PyInstaller` | Standalone executable packaging |
+| Component | Technology | Purpose |
+|-----------|-----------|---------|
+| Backend hosting | Railway or Render | FastAPI + PostgreSQL + Redis |
+| Frontend hosting | Vercel | Next.js deployment |
+| Object storage | Cloudflare R2 or AWS S3 | User uploads (future), export files |
+| DNS + CDN | Cloudflare | DNS, SSL, edge caching, DDoS protection |
+| Monitoring | Sentry | Error tracking (free tier) |
+| Analytics | PostHog | Product analytics, funnels, retention (free tier) |
+| Uptime | BetterUptime | Uptime monitoring + status page (free tier) |
+| Email delivery | Resend.com | Transactional email (3K/mo free) |
+
+### 2.4 External APIs (Data Sources)
+
+| API | Free Tier | Data Provided | Priority |
+|-----|-----------|--------------|----------|
+| **Google Places API (New)** | $200/mo credit (~10K searches) | Name, address, phone, website, rating, reviews, hours, photos, categories | **MVP — Primary** |
+| **Yelp Fusion API** | 5,000 calls/day free | Name, address, phone, rating, reviews, categories, photos | **Post-MVP** |
+| **Foursquare Places API** | 200K calls/mo free | Name, address, categories, hours, popularity, tips | **Post-MVP** |
+| **Hunter.io** | 25 searches/mo free | Business email addresses | **Post-MVP** |
+
+### 2.5 Cost Structure (Monthly at Launch)
+
+| Service | Free Tier | At 100 Users | At 1000 Users |
+|---------|-----------|-------------|--------------|
+| Google Places API | $200 credit | ~$50 | ~$400 |
+| Railway (backend) | $5/mo | $15 | $50 |
+| Vercel (frontend) | Free | Free | $20 |
+| Redis (Upstash) | Free | Free | $10 |
+| PostgreSQL (Neon/Supabase) | Free | Free | $25 |
+| Resend (email) | Free (3K/mo) | Free | $20 |
+| Sentry | Free | Free | Free |
+| PostHog | Free (1M events) | Free | Free |
+| Cloudflare | Free | Free | Free |
+| Stripe fees | 2.9% + $0.30/tx | ~$50 | ~$400 |
+| **Total** | **~$5/mo** | **~$115/mo** | **~$925/mo** |
+
+At 1000 users paying $30 avg = $30,000 MRR → $925 costs = **97% gross margin**.
 
 ---
 
 ## 3. Component Architecture
 
-### 3.1 Domain Model Layer
-
-The domain model is a tree of pure data objects with no rendering or UI logic.
+### 3.1 Backend Services
 
 ```
-Workbook
-├── id: UUID
-├── title: str
-├── sheets: list[Sheet]        ─── ordered, at least one
-├── created_at: datetime
-└── modified_at: datetime
-
-Sheet
-├── id: UUID
-├── title: str
-├── root_topic: Topic          ─── exactly one root
-├── relationships: list[Relationship]
-├── theme: Theme | None
-└── style_map: dict[str, Style]
-
-Topic (recursive tree node)
-├── id: UUID
-├── title: str
-├── children_attached: list[Topic]    ─── layout-managed children
-├── children_detached: list[Topic]    ─── floating topics (explicit x,y)
-├── notes: Notes | None
-├── labels: list[str]
-├── markers: list[MarkerRef]
-├── href: str | None
-├── style: Style | None
-├── structure_class: StructureClass | None
-├── image: ImageRef | None
-├── position: Position | None         ─── only for detached/floating topics
-├── boundaries: list[Boundary]
-├── summaries: list[Summary]
-├── callouts: list[Callout]
-├── branch: BranchStyle | None
-└── is_folded: bool
+src/leadlocal/
+├── api/              ← FastAPI route handlers
+│   ├── auth.py       ← Login, signup, magic link, token refresh
+│   ├── search.py     ← Business search (Google Places + cache)
+│   ├── leads.py      ← CRUD for saved leads
+│   ├── notes.py      ← CRUD for lead notes
+│   ├── reminders.py  ← CRUD for follow-up reminders
+│   ├── pipeline.py   ← Pipeline status management
+│   ├── tags.py       ← Lead tagging
+│   ├── export.py     ← CSV/JSON export
+│   ├── billing.py    ← Stripe webhook handler, subscription management
+│   ├── users.py      ← Profile, settings, team management
+│   └── analytics.py  ← Dashboard stats
+│
+├── services/         ← Business logic (testable without HTTP)
+│   ├── search_service.py     ← Orchestrates multi-source search
+│   ├── lead_service.py       ← Lead CRUD + validation
+│   ├── pipeline_service.py   ← Status transitions + analytics
+│   ├── reminder_service.py   ← Reminder scheduling + notifications
+│   ├── billing_service.py    ← Subscription enforcement + usage tracking
+│   ├── export_service.py     ← CSV/JSON generation
+│   ├── email_service.py      ← Transactional email sending
+│   ├── team_service.py       ← Team invites, permissions
+│   └── analytics_service.py  ← Metrics computation
+│
+├── integrations/     ← External API clients
+│   ├── google_places.py   ← Google Places API client
+│   ├── yelp.py            ← Yelp Fusion API client
+│   ├── foursquare.py      ← Foursquare Places client
+│   ├── hunter.py          ← Hunter.io email finder client
+│   └── stripe_client.py   ← Stripe subscription management
+│
+├── models/           ← SQLAlchemy ORM models
+│   ├── user.py
+│   ├── lead.py
+│   ├── note.py
+│   ├── reminder.py
+│   ├── tag.py
+│   ├── subscription.py
+│   ├── search_cache.py
+│   └── team.py
+│
+├── schemas/          ← Pydantic request/response schemas
+│   ├── auth.py
+│   ├── search.py
+│   ├── lead.py
+│   ├── note.py
+│   ├── reminder.py
+│   ├── billing.py
+│   └── analytics.py
+│
+├── core/             ← Cross-cutting concerns
+│   ├── config.py     ← Environment config (pydantic-settings)
+│   ├── database.py   ← SQLAlchemy engine + session
+│   ├── security.py   ← JWT encoding/decoding, password hashing
+│   ├── cache.py      ← Redis client wrapper
+│   ├── dependencies.py ← FastAPI dependency injection
+│   ├── exceptions.py ← Custom exception classes
+│   ├── rate_limit.py ← Rate limiting middleware
+│   └── middleware.py  ← CORS, logging, error handling
+│
+├── tasks/            ← Celery background tasks
+│   ├── reminders.py  ← Check & send reminder notifications
+│   ├── export.py     ← Generate CSV exports
+│   └── cleanup.py    ← Cache cleanup, stale data removal
+│
+└── migrations/       ← Alembic migration files
+    └── versions/
 ```
 
-**Key design rules:**
-- All domain objects are Pydantic v2 models with validation
-- IDs are UUID4 by default but accept any string for XMind compatibility
-- Topic tree traversal utilities: `walk_depth_first()`, `walk_breadth_first()`, `find_topic_by_id()`, `get_ancestors()`, `get_descendants()`
-- Model mutations emit change signals for observer notification
-- Unknown/extension JSON fields are preserved in a `_extra` dict for lossless round-trip
-
-> Cross-reference: Full schema definitions in [artifacts.md](artifacts.md) Section 1.
-
-### 3.2 Command System (Undo/Redo Engine)
-
-Every model mutation goes through a Command object. No code outside the command system directly modifies model state.
+### 3.2 Frontend Structure
 
 ```
-MindNodeCommand(QUndoCommand)
-├── redo()     ─── apply the change
-├── undo()     ─── reverse the change
-├── id()       ─── command type ID (for merging)
-└── mergeWith() ─── merge with previous command of same type
+src/
+├── app/                    ← Next.js App Router pages
+│   ├── (marketing)/        ← Public pages (SSR for SEO)
+│   │   ├── page.tsx        ← Landing page
+│   │   ├── pricing/page.tsx
+│   │   └── blog/           ← SEO content pages
+│   ├── (auth)/             ← Auth pages
+│   │   ├── login/page.tsx
+│   │   ├── signup/page.tsx
+│   │   └── verify/page.tsx ← Magic link verification
+│   ├── (dashboard)/        ← Protected app pages
+│   │   ├── layout.tsx      ← Dashboard layout with sidebar
+│   │   ├── page.tsx        ← Dashboard home (stats + due reminders)
+│   │   ├── search/page.tsx ← Business search interface
+│   │   ├── leads/page.tsx  ← Saved leads list/grid
+│   │   ├── leads/[id]/page.tsx ← Single lead detail + notes
+│   │   ├── pipeline/page.tsx   ← Kanban pipeline board
+│   │   ├── reminders/page.tsx  ← Upcoming reminders
+│   │   ├── analytics/page.tsx  ← Charts and conversion stats
+│   │   ├── settings/page.tsx   ← User profile + preferences
+│   │   ├── billing/page.tsx    ← Subscription management
+│   │   └── team/page.tsx       ← Team members (Pro/Agency)
+│   ├── api/                ← Next.js API routes (minimal, proxy)
+│   └── layout.tsx          ← Root layout
+│
+├── components/
+│   ├── ui/                 ← shadcn/ui components
+│   ├── search/             ← Search form, result cards, map view
+│   ├── leads/              ← Lead cards, lead detail, notes list
+│   ├── pipeline/           ← Kanban board, status badges
+│   ├── dashboard/          ← Stat cards, reminder list
+│   ├── billing/            ← Pricing table, upgrade modal
+│   └── layout/             ← Sidebar, topbar, mobile nav
+│
+├── lib/
+│   ├── api.ts              ← API client (fetch wrapper)
+│   ├── auth.ts             ← Auth helpers (token management)
+│   └── utils.ts            ← Shared utilities
+│
+├── stores/
+│   └── app-store.ts        ← Zustand global state
+│
+└── types/
+    └── index.ts            ← TypeScript type definitions
 ```
 
-**Command classes:**
+### 3.3 Search Service Architecture
 
-| Category | Commands |
-|----------|----------|
-| Topic | `AddTopicCommand`, `DeleteTopicCommand`, `EditTopicTitleCommand`, `MoveTopicCommand`, `ReorderChildrenCommand`, `ReparentTopicCommand`, `ToggleFoldCommand` |
-| Relationship | `AddRelationshipCommand`, `DeleteRelationshipCommand` |
-| Style | `ChangeStyleCommand`, `ChangeThemeCommand` |
-| Boundary | `AddBoundaryCommand`, `DeleteBoundaryCommand` |
-| Summary | `AddSummaryCommand`, `DeleteSummaryCommand` |
-| Callout | `AddCalloutCommand`, `DeleteCalloutCommand` |
-| Marker | `AddMarkerCommand`, `RemoveMarkerCommand` |
-| Notes | `EditNotesCommand` |
-| Compound | `BatchCommand` (wraps multiple commands for atomic undo), `PasteSubtreeCommand` |
-
-**Stack architecture:**
-- One `QUndoStack` per Sheet
-- One `QUndoGroup` at the Workbook level, switching active stack with active sheet tab
-- Command merging for rapid-fire edits (e.g., typing text merges consecutive `EditTopicTitleCommand` instances into a single undo step)
-
-### 3.3 Layout Engine
-
-The layout engine computes (x, y, width, height) coordinates for every topic node given the tree structure and the active layout algorithm.
+The search service is the core differentiator. It orchestrates multiple data sources and caching.
 
 ```
-LayoutAlgorithm (ABC)
-├── layout(root: Topic, config: LayoutConfig) -> dict[str, NodeGeometry]
-└── structure_class() -> str
-
-NodeGeometry
-├── x, y: float              ─── top-left corner position
-├── width, height: float     ─── node bounding box
-├── connector_in: Point      ─── incoming branch attachment point
-├── connector_out: Point     ─── outgoing branch attachment point
-└── branch_points: list[Point]  ─── intermediate branch path control points
+User searches "Restaurants in Austin, TX"
+  │
+  ▼
+SearchService.search(query="restaurant", location="Austin, TX", radius=5km)
+  │
+  ├── Check Redis cache (key = hash(query + location + radius))
+  │   ├── Cache HIT → return cached results (TTL: 24 hours)
+  │   └── Cache MISS → continue to API calls
+  │
+  ├── GooglePlacesClient.nearby_search(
+  │       query="restaurant",
+  │       location=geocode("Austin, TX"),  ← Google Geocoding
+  │       radius=5000,
+  │       type="restaurant"
+  │   )
+  │   └── Returns: up to 60 results (3 pages × 20)
+  │       Each: place_id, name, address, location, rating,
+  │              user_ratings_total, types, business_status,
+  │              opening_hours, price_level, photos
+  │
+  ├── For each result, fetch details (batched):
+  │   GooglePlacesClient.place_details(place_id)
+  │   └── Returns: phone, website, formatted_address,
+  │                reviews (text + rating), full hours
+  │
+  ├── [Post-MVP] Merge with Yelp / Foursquare data:
+  │   YelpClient.business_search(term, location)
+  │   FoursquareClient.place_search(query, ll)
+  │   └── Match by name + address similarity → merge ratings, photos
+  │
+  ├── Normalize all results to unified LeadSearchResult schema
+  │
+  ├── Cache results in Redis (TTL: 24 hours)
+  │
+  ├── Track usage: increment user's monthly search count
+  │   └── If over limit → return 402 (upgrade required)
+  │
+  └── Return list[LeadSearchResult] to frontend
 ```
 
-**Layout implementations:**
-
-| Class | Algorithm | Key Technique |
-|-------|-----------|--------------|
-| `RadialMapLayout` | Balanced radial expansion | Modified Reingold-Tilford; angular sectors proportional to descendant count; left/right balancing for first-level children |
-| `LogicChartLayout` | Horizontal tree | Standard Reingold-Tilford; parent on left, children stacked vertically on right; configurable direction |
-| `OrgChartLayout` | Vertical hierarchy | Top-down Reingold-Tilford; parent centered above children |
-| `TreeChartLayout` | Indented tree | Each child indented below parent; siblings stacked vertically |
-| `BraceMapLayout` | Brace grouping | Brace connector between parent and child group; horizontal arrangement |
-| `TimelineLayout` | Chronological sequence | Linear horizontal/vertical axis with alternating above/below placement |
-| `FishboneLayout` | Cause-effect diagonal | Spine axis with angled branches at 45/135 degrees; sub-causes branch orthogonally |
-| `MatrixLayout` | Grid arrangement | Row-column grid; headers define axes; cells contain topics |
-| `TreeTableLayout` | Tree + table hybrid | Tree structure on left; table columns extend to the right |
-
-**Layout registry:**
-- Maps `structureClass` strings (e.g., `"org.xmind.ui.map"`) to layout algorithm classes
-- Supports mixed layouts: each Topic can override the layout for its subtree
-- Default layout: `RadialMapLayout` for root topics without explicit `structureClass`
-
-**Layout animation:**
-- When layout changes (node added, structure changed), new positions are computed
-- `QPropertyAnimation` smoothly interpolates items from old positions to new positions
-- Animation duration: 300ms with ease-in-out curve
-
-### 3.4 Canvas / Rendering Layer
-
-The canvas uses Qt's QGraphicsView framework — a proven architecture for 2D interactive graphics applications.
-
-**Scene (`MindMapScene : QGraphicsScene`):**
-- Owns all visual items (topics, branches, relationships, boundaries, summaries, callouts)
-- Manages selection state (single, multi-select, rubber-band)
-- Handles drag-and-drop zones for topic reparenting
-- Renders canvas background (solid color, grid, wallpaper)
-- Coordinate system: scene coordinates in logical units (not pixels)
-
-**View (`MindMapView : QGraphicsView`):**
-- Zoom: mouse wheel + Ctrl+scroll, pinch gesture, toolbar slider (10%–500%)
-- Pan: middle-mouse-button drag, Space+left-click drag, scroll bars
-- Viewport culling: only renders items visible in the current viewport
-- Minimap: overlay widget showing the full map with viewport indicator
-- Rubber-band selection: drag on empty canvas area to select multiple items
-
-**Visual items (`QGraphicsObject` subclasses):**
-
-| Item | Renders |
-|------|---------|
-| `TopicItem` | Node shape, text (rich text via QTextDocument), icons/markers row, labels bar, image, fold indicator (+/- button) |
-| `BranchItem` | Curved/straight/elbow/rounded-elbow connector lines between parent and child topic items, with optional tapering |
-| `RelationshipItem` | Arrow path with optional label between any two topic items, with control point handles for editing |
-| `BoundaryItem` | Enclosing rounded-rectangle or cloud shape around a group of sibling topic items |
-| `SummaryItem` | Bracket shape spanning sibling items, connecting to a summary topic item |
-| `CalloutItem` | Speech-bubble shape with connector to parent topic item |
-| `FloatingTopicItem` | Standalone topic item at explicit canvas coordinates (subclass of TopicItem) |
-
-**Rendering pipeline:**
-```
-User action
-  → Controller creates Command
-    → Command.redo() mutates Domain Model
-      → Model emits change signal
-        → Layout engine computes new geometry
-          → SceneBuilder updates item positions
-            → View repaints affected region
-```
-
-### 3.5 UI Shell (Main Window)
+### 3.4 Billing & Usage Enforcement
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│  Menu Bar: File │ Edit │ View │ Insert │ Format │ Map │ Help │
-├──────────────────────────────────────────────────────────────┤
-│  Toolbar: [New] [Open] [Save] │ [Undo] [Redo] │ [Add Topic] │
-│           [Add Subtopic] [Delete] │ [Zoom] │ [Layout ▼]     │
-├────────────┬─────────────────────────────────┬───────────────┤
-│            │                                 │               │
-│  Outline   │     Canvas (MindMapView)        │  Properties   │
-│  Panel     │                                 │  Panel        │
-│            │     ┌──────────────┐            │               │
-│  - Root    │     │  Root Topic  │            │  Title: ___   │
-│    - Child │     │     / \      │            │  Style: ___   │
-│      - Sub │     │  Ch1  Ch2   │            │  Notes: ___   │
-│    - Child │     │   |    |    │            │  Markers: ___ │
-│            │     │  Sub  Sub   │            │  Link: ___    │
-│            │     └──────────────┘            │               │
-│            │                                 │               │
-├────────────┴───────────────────┬─────────────┴───────────────┤
-│  Sheet Tabs: [Sheet 1] [Sheet 2] [+]                        │
-├─────────────────────────────────────────────────────────────┤
-│  Status Bar: Zoom: 100% │ Nodes: 42 │ Modified │ Auto-saved │
-└─────────────────────────────────────────────────────────────┘
+Every API request:
+  │
+  ▼
+BillingMiddleware
+  ├── Lookup user's subscription tier (cached in Redis)
+  ├── Check feature access:
+  │   ├── Free:    max 50 saved leads, 10 searches/mo, 1 user
+  │   ├── Starter: max 500 saved leads, 50 searches/mo, 1 user
+  │   ├── Pro:     max 2000 saved leads, 200 searches/mo, 3 users
+  │   └── Agency:  max 10000 saved leads, unlimited, 10 users
+  │
+  ├── If within limits → allow request
+  └── If over limit → return 402 with upgrade prompt
+      {
+        "error": "limit_exceeded",
+        "message": "You've used 50 of 50 saved leads",
+        "upgrade_url": "/billing?plan=starter",
+        "current_plan": "free",
+        "suggested_plan": "starter"
+      }
 ```
-
-**Dock panels (all QDockWidget — user can rearrange, float, close, resize):**
-
-| Panel | Description |
-|-------|-------------|
-| `PropertiesPanel` | Context-sensitive editor for the selected item(s): title, style properties, notes, markers, labels, hyperlink, image |
-| `OutlinePanel` | QTreeView showing hierarchical text outline of the map; fully editable; bidirectionally synced with canvas |
-| `MarkerPanel` | Categorized grid of all 350+ marker icons; click to apply to selected topic, or drag onto a topic |
-| `SearchPanel` | Full-text search box, results list, highlight/navigate matching nodes on canvas; find-and-replace mode |
-| `ThemePanel` | Theme gallery, style presets, color palette editor |
-
-**Sheet tabs:**
-- `QTabWidget` with one `MindMapView` per sheet
-- Tab context menu: rename, duplicate, delete, move left/right
-- "+" button to add new sheet
-
-### 3.6 File I/O Subsystem
-
-Abstract handler pattern with a registry for format discovery.
-
-```
-FileHandler (ABC)
-├── can_load(path: Path) -> bool
-├── load(path: Path) -> Workbook
-├── can_save(path: Path) -> bool
-├── save(workbook: Workbook, path: Path) -> None
-└── supported_extensions() -> list[str]
-
-Exporter (ABC)    ─── export-only (no import)
-├── export(workbook: Workbook, path: Path, options: ExportOptions) -> None
-└── supported_extensions() -> list[str]
-```
-
-**Concrete handlers:**
-
-| Handler | Extensions | Direction |
-|---------|-----------|-----------|
-| `XMindHandler` | `.xmind` | Read + Write |
-| `MindNodesHandler` | `.mindnodes` | Read + Write |
-| `FreeMindHandler` | `.mm` | Read + Write |
-| `OPMLHandler` | `.opml` | Read + Write |
-| `MarkdownHandler` | `.md` | Read + Write |
-| `PNGExporter` | `.png` | Export only |
-| `SVGExporter` | `.svg` | Export only |
-| `PDFExporter` | `.pdf` | Export only |
-
-**Handler registry:**
-- Maps file extensions to handler classes
-- Auto-detection: check file extension first, then sniff ZIP magic bytes for `.xmind`
-- File dialogs dynamically built from registered handlers' supported extensions
-
-> Cross-reference: File format specifications in [artifacts.md](artifacts.md) Section 2.
-
-### 3.7 Plugin Architecture
-
-Plugins extend Mind-Nodes through standard Python packaging conventions.
-
-**Plugin discovery:**
-- Uses `importlib.metadata.entry_points(group="mindnodes.plugins")`
-- Plugins are standard Python packages installable via pip
-- No need for custom plugin directories or manifest files
-
-**Plugin interface:**
-```python
-class MindNodesPlugin(ABC):
-    def activate(self, app: MindNodesApp) -> None: ...
-    def deactivate(self) -> None: ...
-    def get_layouts(self) -> list[type[LayoutAlgorithm]]: ...
-    def get_file_handlers(self) -> list[type[FileHandler]]: ...
-    def get_commands(self) -> list[type[MindNodeCommand]]: ...
-    def get_menu_actions(self) -> list[QAction]: ...
-    def get_toolbar_actions(self) -> list[QAction]: ...
-    def get_panel_widgets(self) -> list[type[QDockWidget]]: ...
-    def get_marker_packs(self) -> list[MarkerPack]: ...
-    def get_themes(self) -> list[Theme]: ...
-```
-
-**Extension points:**
-- Custom layout algorithms
-- Custom file importers/exporters
-- Custom toolbar and menu actions
-- Custom dock panel widgets
-- Custom marker icon packs
-- Custom color themes
-
-**Plugin manager:**
-- Discovers installed plugins at startup
-- Enable/disable plugins via settings
-- Dependency resolution between plugins
-- Plugin manager UI in settings dialog
-
-### 3.8 Settings and Configuration
-
-**Storage:** `QSettings` with INI backend for cross-platform compatibility.
-
-**Settings categories:**
-
-| Category | Examples |
-|----------|----------|
-| Appearance | Default theme, canvas background, show grid, grid size |
-| Behavior | Auto-save interval, undo limit, default structure class |
-| Keybindings | Action-to-key-sequence mappings (150+ shortcuts) |
-| File | Recent files list (max 20), default save format, export defaults |
-| Plugins | Enable/disable map per plugin ID |
-| Window | Window geometry, dock panel arrangement, last active sheet |
-
-**Settings dialog:** Categorized tab interface for editing all settings with live preview.
 
 ---
 
 ## 4. Data Flow Diagrams
 
-### 4.1 User Interaction Flow
+### 4.1 User Signup Flow
 
 ```
-User clicks "Add Subtopic"
+User visits leadlocal.io
   │
   ▼
-MenuBar/Toolbar/Shortcut handler
+Landing page (Next.js SSR — SEO optimized)
+  │  User clicks "Start Free"
+  ▼
+Signup form → POST /api/auth/signup { email, password }
   │
   ▼
-Controller creates AddTopicCommand(parent_id, new_topic)
-  │
-  ▼
-QUndoStack.push(command)  ──── triggers command.redo()
-  │
-  ▼
-command.redo():
-  ├── parent_topic.children_attached.append(new_topic)
-  └── sheet.emit(topic_added, parent_id, new_topic)
+Backend:
+  ├── Create User record (status: pending_verification)
+  ├── Hash password with bcrypt
+  ├── Create free-tier Subscription record
+  ├── Send verification email via Resend
+  └── Return { user_id, message: "Check email" }
         │
         ▼
-      SceneBuilder receives signal
-        ├── Creates TopicItem for new topic
-        ├── Creates BranchItem connecting parent to child
-        ├── Requests layout recomputation
-        │     │
-        │     ▼
-        │   LayoutEngine.layout(root_topic, config)
-        │     │
-        │     ▼
-        │   Returns dict[topic_id -> NodeGeometry]
-        │
-        ├── Animates all items to new positions
-        └── View repaints
-```
-
-### 4.2 File Open Flow
-
-```
-User selects File > Open > "project.xmind"
+User clicks email link → GET /api/auth/verify?token=...
   │
   ▼
-FileHandlerRegistry.get_handler(".xmind")
-  │
-  ▼
-XMindHandler.load("project.xmind")
-  ├── zipfile.ZipFile opens archive
-  ├── Reads content.json → parses JSON
-  ├── Builds Workbook model from JSON
-  │     ├── Creates Sheet objects
-  │     ├── Recursively builds Topic trees
-  │     ├── Creates Relationship objects
-  │     └── Applies Style and Theme objects
-  ├── Extracts resources/ images to temp cache
-  └── Returns Workbook
+Backend:
+  ├── Validate token (JWT with 24h expiry)
+  ├── Set user.status = active
+  ├── Generate access_token + refresh_token
+  └── Redirect to /dashboard
         │
         ▼
-App receives Workbook
-  ├── Creates MindMapScene per Sheet
-  ├── SceneBuilder populates items
-  ├── LayoutEngine computes geometry per Sheet
-  ├── Creates tabs in TabManager
-  └── View renders first sheet
+Dashboard loads → GET /api/leads/stats
+  └── Returns: { saved: 0, limit: 50, searches_used: 0, reminders_due: 0 }
+      │
+      ▼
+  Prompt: "Search for your first leads!" → /search
 ```
 
-### 4.3 File Save Flow
+### 4.2 Search → Save → Follow-up Flow
 
 ```
-User selects File > Save (or auto-save triggers)
+User on /search page:
+  Types "Dentists" + "Miami, FL" + 10km radius
   │
   ▼
-FileHandlerRegistry.get_handler(current_path.suffix)
+Frontend: POST /api/search { query, location, radius }
   │
   ▼
-XMindHandler.save(workbook, path)  ──── runs on QThread worker
-  ├── Serializes Workbook → content.json dict
-  │     ├── Iterates sheets
-  │     ├── Recursively serializes Topic trees
-  │     ├── Serializes Relationships, Styles, Themes
-  │     └── Preserves _extra fields for lossless round-trip
-  ├── Generates metadata.json
-  ├── Generates manifest.json
-  ├── Renders thumbnail PNG (256x256)
-  ├── Copies resource images
-  ├── Writes ZIP archive atomically (write to temp, then rename)
-  └── Emits save_complete signal
+Backend SearchService:
+  ├── Check usage: user has 3 of 10 free searches used → OK
+  ├── Check Redis cache → MISS
+  ├── Call Google Places API (Nearby Search)
+  │   → 20 results (page 1)
+  ├── Call Place Details for each (batched via async)
+  ├── Cache in Redis (TTL: 24h)
+  ├── Increment search count: 3 → 4
+  └── Return 20 LeadSearchResult objects
         │
         ▼
-Main thread receives signal
-  ├── Updates window title (removes "Modified" indicator)
-  ├── Updates status bar
-  └── Resets auto-save timer
-```
-
-### 4.4 Undo/Redo Flow
-
-```
-User presses Ctrl+Z
+Frontend renders search results as cards:
+  ┌─────────────────────────────────────────┐
+  │ ★ 4.6  Coral Gables Dental      [Save] │
+  │        123 Miracle Mile, Miami          │
+  │        📞 (305) 555-0123  🌐 Website   │
+  │        Open now · 287 reviews           │
+  └─────────────────────────────────────────┘
+        │  User clicks [Save]
+        ▼
+Frontend: POST /api/leads { google_place_id, source_data }
   │
   ▼
-QUndoStack.undo()
-  │
-  ▼
-Last command's undo() executes
-  ├── Reverts model to pre-command state
-  │     (e.g., removes the added topic, restores deleted topic)
-  └── Emits model change signals
+Backend LeadService:
+  ├── Check limit: user has 12 of 50 free leads → OK
+  ├── Check duplicate: not already saved → OK
+  ├── Create Lead record (status: "new")
+  ├── Store source data snapshot (name, address, phone, etc.)
+  └── Return Lead object with id
         │
         ▼
-SceneBuilder receives signals
-  ├── Updates/creates/removes visual items as needed
-  ├── Requests layout recomputation
-  └── Animates items to new positions
+User clicks on saved lead → /leads/{id}
+  │  Adds a note: "Called, spoke with Dr. Garcia, interested in SEO"
+  │  Sets follow-up: next Tuesday
+  │  Changes status: New → Contacted
+  ▼
+Frontend:
+  POST /api/leads/{id}/notes { content: "Called, spoke with..." }
+  POST /api/leads/{id}/reminders { due_date: "2026-02-17", note: "Follow up call" }
+  PATCH /api/leads/{id} { status: "contacted" }
+```
+
+### 4.3 Stripe Billing Flow
+
+```
+User hits lead limit (50/50 on free tier):
+  │
+  ▼
+Frontend shows upgrade modal:
+  "You've saved 50 of 50 leads. Upgrade to Starter ($19/mo) for 500 leads."
+  [Upgrade Now]
+  │
+  ▼
+Frontend: POST /api/billing/create-checkout-session { plan: "starter" }
+  │
+  ▼
+Backend BillingService:
+  ├── Create Stripe Checkout Session
+  │   stripe.checkout.Session.create(
+  │     customer=user.stripe_customer_id,
+  │     price=STARTER_PRICE_ID,
+  │     mode="subscription",
+  │     success_url="/billing?success=true",
+  │     cancel_url="/billing?canceled=true",
+  │   )
+  └── Return { checkout_url }
+        │
+        ▼
+Frontend redirects to Stripe Checkout page
+  User enters payment → Stripe processes
+  │
+  ▼
+Stripe sends webhook → POST /api/billing/webhook
+  │
+  ▼
+Backend handles event:
+  ├── checkout.session.completed → Create/update Subscription record
+  ├── invoice.payment_succeeded → Extend subscription, update tier
+  ├── invoice.payment_failed → Send warning email, grace period
+  └── customer.subscription.deleted → Downgrade to free tier
+        │
+        ▼
+User's tier updated in DB + Redis cache
+  └── Next API request: limits are now 500 leads, 50 searches/mo
 ```
 
 ---
 
-## 5. Concurrency Model
+## 5. Caching Strategy
 
-### 5.1 Threading Rules
+### 5.1 Cache Layers
 
-| Thread | Responsibilities |
-|--------|-----------------|
-| **Main thread** | All UI rendering, scene operations, model mutations, command execution, signal/slot dispatch |
-| **File I/O worker** (QThread) | Loading and saving large files; emits signals back to main thread on completion |
-| **Export worker** (QThread) | Rendering PNG, SVG, PDF exports; progress reported via signals |
-| **Auto-save worker** (QThread) | Background periodic saves; serializes model snapshot, writes to recovery directory |
-| **Plugin loader** (QThread) | Plugin discovery and initialization at startup (avoids blocking app launch) |
+| Data | Cache Location | TTL | Purpose |
+|------|---------------|-----|---------|
+| Google Places search results | Redis | 24 hours | Reduce API costs (same search = no API call) |
+| Place details | Redis | 7 days | Details change rarely; reduce detail API calls |
+| User subscription tier | Redis | 1 hour | Avoid DB query on every request |
+| User session/JWT | Redis | 15 min (access) / 7 days (refresh) | Fast auth validation |
+| Dashboard stats | Redis | 5 minutes | Avoid expensive aggregate queries |
+| Rate limit counters | Redis | 1 minute window | Request rate limiting |
 
-### 5.2 Thread Safety Rules
-
-1. **The domain model is main-thread-only.** No worker thread may read or write model objects directly.
-2. Worker threads operate on **serialized copies** (JSON dicts, byte buffers) — not live model references.
-3. All **worker-to-main communication** uses Qt's signal/slot mechanism with `Qt.QueuedConnection` (the default for cross-thread signals).
-4. File save workers receive a **deep-copied snapshot** of the model's serialized form, so the user can continue editing while the save completes.
-5. Progress reporting uses signals: `progress_updated(int)`, `operation_complete(result)`, `operation_failed(error)`.
-
----
-
-## 6. Error Handling Strategy
-
-### 6.1 Exception Hierarchy
+### 5.2 Cache Key Schema
 
 ```
-MindNodesError (base)
-├── FileFormatError          ─── corrupt/unsupported file format
-│   ├── XMindFormatError     ─── specific to .xmind parsing
-│   └── ImportFormatError    ─── import format parsing errors
-├── LayoutError              ─── layout algorithm failures
-├── PluginError              ─── plugin load/activation failures
-│   ├── PluginLoadError
-│   └── PluginActivationError
-├── CommandError             ─── command execution failures
-└── ValidationError          ─── model validation failures
+search:{hash(query+location+radius)}     → search results JSON
+place:{google_place_id}                   → place details JSON
+user:tier:{user_id}                       → subscription tier string
+user:usage:{user_id}:{year}:{month}       → { searches: N, leads: N }
+stats:{user_id}                           → dashboard stats JSON
+ratelimit:{user_id}:{endpoint}:{window}   → request count
 ```
 
-### 6.2 Error Presentation
+### 5.3 API Cost Optimization
 
-| Severity | Presentation | Examples |
-|----------|-------------|----------|
-| Info | Status bar message (auto-dismiss 5s) | "Auto-saved", "3 topics found" |
-| Warning | Status bar message (persistent) | "Unknown markers ignored during import" |
-| Error (recoverable) | Modal dialog with details | "Failed to export PNG: permission denied" |
-| Error (data risk) | Modal dialog + recovery options | "File appears corrupted. Open recovery file?" |
-| Fatal | Modal dialog + graceful shutdown | "Qt rendering context lost" |
+```
+Without cache:
+  1000 users × 5 searches/day × 30 days = 150,000 API calls/month
+  Cost: ~$4,800/month (Google Places)
 
-### 6.3 Crash Recovery
+With 24h cache (80% cache hit rate):
+  150,000 × 0.20 = 30,000 API calls/month
+  Cost: ~$960/month
 
-1. **Auto-save timer** runs every 60 seconds (configurable)
-2. Auto-save writes to `~/.mindnodes/recovery/{workbook_id}.mindnodes.recovery`
-3. On startup, the app checks for recovery files newer than their corresponding saved files
-4. If recovery files found: dialog offers "Restore recovered version" or "Discard recovery"
-5. Recovery files are deleted after successful manual save
+Savings: $3,840/month (80% reduction)
+```
 
 ---
 
-## 7. Security Considerations
+## 6. Security Architecture
 
-### 7.1 File Handling
+### 6.1 Authentication
 
-| Threat | Mitigation |
-|--------|-----------|
-| ZIP bomb | Enforce max decompressed size (100 MB default); abort extraction if exceeded |
-| Path traversal | Sanitize all file paths from ZIP entries; reject paths containing `..` or absolute paths |
-| Malformed JSON | Validate content.json against expected schema before deserialization; catch and report parse errors |
-| Oversized images | Limit embedded image dimensions (max 4096x4096) and file size (max 10 MB per image) |
-| Resource exhaustion | Limit max nodes per map (configurable, default 10,000); warn user when approaching limit |
+```
+Two auth methods:
 
-### 7.2 Plugin Security
+1. Email + Password:
+   - Password hashed with bcrypt (12 rounds)
+   - Email verification required before first login
+   - Access token: JWT, 15-minute expiry
+   - Refresh token: JWT, 7-day expiry, stored in httpOnly cookie
 
-- **v1.0:** Plugins run in-process with full Python capabilities (no sandboxing)
-- **Post-v1.0:** Plugin signing and verification system
-- **Mitigation:** Plugins are installed via pip, so standard PyPI security practices apply; users are warned when enabling third-party plugins
+2. Magic Link (passwordless):
+   - User enters email → backend sends login link
+   - Link contains signed JWT with 15-minute expiry
+   - One-time use (invalidated after click)
+   - Ideal for reducing signup friction
+```
+
+### 6.2 API Security
+
+| Measure | Implementation |
+|---------|---------------|
+| Authentication | JWT Bearer token on all /api/* routes (except /auth/*) |
+| Rate limiting | 100 req/min per user (Redis sliding window) |
+| Input validation | Pydantic schemas validate all request bodies |
+| SQL injection | SQLAlchemy ORM (parameterized queries only) |
+| XSS | React auto-escapes; CSP headers on responses |
+| CORS | Whitelist frontend domain only |
+| CSRF | SameSite=Strict cookies + Origin header check |
+| Data access | Row-level security: users can only access own leads/notes |
+| Stripe webhooks | Signature verification on all webhook endpoints |
+| Secrets | Environment variables via pydantic-settings; never in code |
+
+### 6.3 Data Privacy
+
+| Data Type | Privacy Rule |
+|-----------|-------------|
+| Business data (from Google/Yelp) | Public data, displayed as-is |
+| User notes | Private to user (or team). Never shared, never used for analytics |
+| User email/password | Encrypted at rest, password bcrypt-hashed |
+| Pipeline status | Private to user/team |
+| Usage analytics | Anonymized for internal metrics only |
+| Stripe payment data | Handled entirely by Stripe; we never store card numbers |
 
 ---
 
-## 8. Document Cross-References
+## 7. Scalability Considerations
+
+### 7.1 MVP Scale (0–1,000 users)
+
+- Single FastAPI process on Railway ($5-20/mo)
+- Single PostgreSQL instance (Neon free tier → $25/mo)
+- Single Redis instance (Upstash free tier)
+- Vercel free tier for frontend
+- **Total cost: $5-50/mo**
+
+### 7.2 Growth Scale (1,000–10,000 users)
+
+- FastAPI with 2-4 Gunicorn workers
+- PostgreSQL with read replicas
+- Redis cluster for caching
+- Celery workers for background jobs (2-4 workers)
+- CDN for static assets
+- **Total cost: $200-500/mo**
+
+### 7.3 Scale-Up Triggers
+
+| Trigger | Action |
+|---------|--------|
+| API response time > 500ms (p95) | Add FastAPI workers or upgrade instance |
+| Database CPU > 70% | Add read replica for search queries |
+| Redis memory > 80% | Upgrade Redis instance or reduce TTLs |
+| Celery queue > 1000 pending | Add Celery workers |
+| Google API costs > $1000/mo | Increase cache TTLs, add Yelp/Foursquare as alternates |
+
+---
+
+## 8. Monitoring and Observability
+
+| Layer | Tool | What It Tracks |
+|-------|------|---------------|
+| Error tracking | Sentry | Unhandled exceptions, API errors, stack traces |
+| Product analytics | PostHog | User actions, funnels, retention, feature usage |
+| Uptime monitoring | BetterUptime | API availability, response times, status page |
+| Application logs | stdout → Railway logs | Request logs, business logic events |
+| Database | PostgreSQL pg_stat | Query performance, connection pool |
+| API costs | Google Cloud Console | Places API usage and billing |
+| Business metrics | Internal dashboard | MRR, signups, conversions, churn |
+
+---
+
+## 9. Document Cross-References
 
 | Topic | Document |
 |-------|----------|
-| Project principles, scope, and success criteria | [constitution.md](constitution.md) |
-| Data model schemas (full field definitions) | [artifacts.md](artifacts.md) Section 1 |
-| File format specifications | [artifacts.md](artifacts.md) Section 2 |
-| API interface contracts | [artifacts.md](artifacts.md) Section 3 |
-| Phased build order | [implementation-guide.md](implementation-guide.md) |
-| Directory structure and module listing | [skeleton.md](skeleton.md) |
+| Business model and pricing tiers | [constitution.md](constitution.md) Section 4 |
+| Database schemas and API contracts | [artifacts.md](artifacts.md) |
+| Build phases and deployment steps | [implementation-guide.md](implementation-guide.md) |
+| File/directory structure | [skeleton.md](skeleton.md) |
+| Marketing and growth strategy | [go-to-market.md](go-to-market.md) |
