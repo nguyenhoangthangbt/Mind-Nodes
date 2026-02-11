@@ -1,5 +1,7 @@
 """Authentication service — signup, login, magic link, token refresh."""
 
+import logging
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +16,9 @@ from leadlocal.core.security import (
 )
 from leadlocal.models.user import User
 from leadlocal.schemas.auth import SignupRequest, TokenResponse
+from leadlocal.services.email_service import send_magic_link_email, send_welcome_email
+
+logger = logging.getLogger(__name__)
 
 
 async def signup(db: AsyncSession, data: SignupRequest) -> tuple[User, TokenResponse]:
@@ -36,6 +41,10 @@ async def signup(db: AsyncSession, data: SignupRequest) -> tuple[User, TokenResp
         access_token=create_access_token(str(user.id)),
         refresh_token=create_refresh_token(str(user.id)),
     )
+
+    # Send welcome email (fire-and-forget)
+    await send_welcome_email(data.email, data.full_name)
+
     return user, tokens
 
 
@@ -59,7 +68,14 @@ async def magic_link_request(db: AsyncSession, email: str) -> str:
     if not user:
         raise AuthenticationError("No account found with this email")
 
-    return create_magic_link_token(email)
+    token = create_magic_link_token(email)
+
+    # Send the magic link email
+    sent = await send_magic_link_email(email, token)
+    if not sent:
+        logger.warning("Magic link email not sent (Resend not configured) for %s", email)
+
+    return token
 
 
 async def magic_link_verify(db: AsyncSession, token: str) -> tuple[User, TokenResponse]:
