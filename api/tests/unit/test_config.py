@@ -16,16 +16,16 @@ class TestConfig:
     def test_tier_limits_starter(self):
         limits = settings.get_tier_limits("starter")
         assert limits["max_leads"] == 500
-        assert limits["max_searches"] == 50
+        assert limits["max_searches"] == 75
 
     def test_tier_limits_pro(self):
         limits = settings.get_tier_limits("pro")
-        assert limits["max_leads"] == 2000
-        assert limits["max_searches"] == 200
+        assert limits["max_leads"] == 2500
+        assert limits["max_searches"] == 300
 
     def test_tier_limits_agency(self):
         limits = settings.get_tier_limits("agency")
-        assert limits["max_leads"] == 10000
+        assert limits["max_leads"] == 15000
         assert limits["max_searches"] == 999999
 
     def test_unknown_tier_defaults_to_free(self):

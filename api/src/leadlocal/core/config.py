@@ -56,14 +56,14 @@ class Settings(BaseSettings):
     # Sentry (optional)
     sentry_dsn: str = ""
 
-    # Tier limits
+    # Tier limits (revised per market research — docs/market-research.md §6.4)
     free_max_leads: int = 50
     free_max_searches: int = 10
     starter_max_leads: int = 500
-    starter_max_searches: int = 50
-    pro_max_leads: int = 2000
-    pro_max_searches: int = 200
-    agency_max_leads: int = 10000
+    starter_max_searches: int = 75
+    pro_max_leads: int = 2500
+    pro_max_searches: int = 300
+    agency_max_leads: int = 15000
     agency_max_searches: int = 999999  # effectively unlimited
 
     def get_tier_limits(self, tier: str) -> dict[str, int]:
